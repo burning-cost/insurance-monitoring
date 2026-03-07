@@ -1,5 +1,7 @@
 # insurance-monitoring
 
+![Python](https://img.shields.io/badge/python-3.10%2B-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green) ![PyPI](https://img.shields.io/pypi/v/insurance-monitoring)
+
 Deployed insurance pricing models go stale. The portfolio ages, the claims environment shifts, regulators change the rules. Without systematic monitoring you find out about it when the loss ratio deteriorates — typically 12 to 18 months after the model started misfiring.
 
 This library gives UK pricing teams the specific tools to catch that drift early: exposure-weighted PSI for feature distribution, A/E ratios with Poisson confidence intervals for calibration, and the Gini drift z-test from [arXiv 2510.04556](https://arxiv.org/abs/2510.04556) — currently the only statistically rigorous actuarial monitoring framework in the literature.
@@ -201,6 +203,50 @@ The Gini drift test implements the framework from:
 > "Model Monitoring: A General Framework with an Application to Non-life Insurance Pricing", arXiv 2510.04556 (December 2025)
 
 This is the only published actuarially-specific monitoring framework with proper asymptotic theory. As of March 2026, no other Python library implements it.
+
+---
+
+## Other Burning Cost libraries
+
+**Model building**
+
+| Library | Description |
+|---------|-------------|
+| [shap-relativities](https://github.com/burningcost/shap-relativities) | Extract rating relativities from GBMs using SHAP |
+| [insurance-interactions](https://github.com/burningcost/insurance-interactions) | Automated GLM interaction detection via CANN and NID scores |
+| [insurance-cv](https://github.com/burningcost/insurance-cv) | Walk-forward cross-validation respecting IBNR structure |
+
+**Uncertainty quantification**
+
+| Library | Description |
+|---------|-------------|
+| [insurance-conformal](https://github.com/burningcost/insurance-conformal) | Distribution-free prediction intervals for Tweedie models |
+| [bayesian-pricing](https://github.com/burningcost/bayesian-pricing) | Hierarchical Bayesian models for thin-data segments |
+| [credibility](https://github.com/burningcost/credibility) | Bühlmann-Straub credibility weighting |
+
+**Deployment and optimisation**
+
+| Library | Description |
+|---------|-------------|
+| [rate-optimiser](https://github.com/burningcost/rate-optimiser) | Constrained rate change optimisation with FCA PS21/5 compliance |
+| [insurance-demand](https://github.com/burningcost/insurance-demand) | Conversion, retention, and price elasticity modelling |
+
+**Governance**
+
+| Library | Description |
+|---------|-------------|
+| [insurance-fairness](https://github.com/burningcost/insurance-fairness) | Proxy discrimination auditing for UK insurance models |
+| [insurance-causal](https://github.com/burningcost/insurance-causal) | Double Machine Learning for causal pricing inference |
+
+**Spatial**
+
+| Library | Description |
+|---------|-------------|
+| [insurance-spatial](https://github.com/burningcost/insurance-spatial) | BYM2 spatial territory ratemaking for UK personal lines |
+
+[All libraries →](https://burningcost.github.io)
+
+---
 
 ## Licence
 
