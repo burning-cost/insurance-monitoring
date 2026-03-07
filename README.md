@@ -2,9 +2,9 @@
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green) ![PyPI](https://img.shields.io/pypi/v/insurance-monitoring)
 
-Deployed insurance pricing models go stale. The portfolio ages, the claims environment shifts, regulators change the rules. Without systematic monitoring you find out about it when the loss ratio deteriorates — typically 12 to 18 months after the model started misfiring.
+Deployed insurance pricing models go stale. The portfolio ages, the claims environment shifts, regulators change the rules. Without systematic monitoring you find out about it when the loss ratio deteriorates - typically 12 to 18 months after the model started misfiring.
 
-This library gives UK pricing teams the specific tools to catch that drift early: exposure-weighted PSI for feature distribution, A/E ratios with Poisson confidence intervals for calibration, and the Gini drift z-test from [arXiv 2510.04556](https://arxiv.org/abs/2510.04556) — currently the only statistically rigorous actuarial monitoring framework in the literature.
+This library gives UK pricing teams the specific tools to catch that drift early: exposure-weighted PSI for feature distribution, A/E ratios with Poisson confidence intervals for calibration, and the Gini drift z-test from [arXiv 2510.04556](https://arxiv.org/abs/2510.04556) - currently the only statistically rigorous actuarial monitoring framework in the literature.
 
 It produces traffic-light outputs (green/amber/red) that match how a Head of Pricing actually reads a monitoring pack, and a decision recommendation based on the Murphy score decomposition: recalibrate (update the intercept, one hour of work) or refit (rebuild the model, weeks of work).
 
@@ -14,12 +14,6 @@ It produces traffic-light outputs (green/amber/red) that match how a Head of Pri
 
 ```bash
 uv add insurance-monitoring
-```
-
-Or with pip:
-
-```bash
-pip install insurance-monitoring
 ```
 
 ## Quick example
@@ -65,7 +59,7 @@ print(report.to_polars())     # flat DataFrame with metric / value / band column
 
 ## Modules
 
-### `drift` — Feature distribution monitoring
+### `drift` - Feature distribution monitoring
 
 ```python
 from insurance_monitoring.drift import psi, csi, ks_test, wasserstein_distance
@@ -90,9 +84,9 @@ d = wasserstein_distance(driver_ages_train, driver_ages_q1_2025)
 print(f"Average driver age shifted by {d:.1f} years")
 ```
 
-**On exposure-weighted PSI**: standard PSI treats every policy equally regardless of how long it was on risk. If your book renews quarterly and mixes 1-month and 12-month policies, unweighted PSI is wrong. The `exposure_weights` parameter weights bin proportions by earned exposure — correct for insurance.
+**On exposure-weighted PSI**: standard PSI treats every policy equally regardless of how long it was on risk. If your book renews quarterly and mixes 1-month and 12-month policies, unweighted PSI is wrong. The `exposure_weights` parameter weights bin proportions by earned exposure - correct for insurance.
 
-### `calibration` — A/E ratio and calibration checks
+### `calibration` - A/E ratio and calibration checks
 
 ```python
 from insurance_monitoring.calibration import ae_ratio, ae_ratio_ci
@@ -110,9 +104,9 @@ seg_ae = ae_ratio(
 # Returns Polars DataFrame: segment | actual | expected | ae_ratio | n_policies
 ```
 
-**On the IBNR problem**: the A/E ratio is only reliable on mature accident periods. For motor, that means at least 12 months of claims development. For liability, 24+ months. If you run monthly monitoring on recent accident months, apply chain-ladder development factors first — otherwise you will see artificially low A/E ratios that recover as claims develop.
+**On the IBNR problem**: the A/E ratio is only reliable on mature accident periods. For motor, that means at least 12 months of claims development. For liability, 24+ months. If you run monthly monitoring on recent accident months, apply chain-ladder development factors first - otherwise you will see artificially low A/E ratios that recover as claims develop.
 
-### `discrimination` — Gini drift test
+### `discrimination` - Gini drift test
 
 ```python
 from insurance_monitoring.discrimination import gini_coefficient, gini_drift_test
@@ -133,9 +127,9 @@ result = gini_drift_test(
 # {'z_statistic': -1.93, 'p_value': 0.054, 'gini_change': -0.03, 'significant': False}
 ```
 
-The Gini drift test is the distinguishing feature of this library. Most monitoring tools will tell you whether A/E has moved. This tells you whether the model's *ranking* has degraded — the difference between a cheap recalibration and a full refit.
+The Gini drift test is the distinguishing feature of this library. Most monitoring tools will tell you whether A/E has moved. This tells you whether the model's *ranking* has degraded - the difference between a cheap recalibration and a full refit.
 
-### `report` — Combined monitoring in one call
+### `report` - Combined monitoring in one call
 
 ```python
 from insurance_monitoring import MonitoringReport
@@ -165,7 +159,7 @@ df = report.to_polars()
 # recommendation      | nan    | REFIT
 ```
 
-### `thresholds` — Configurable traffic lights
+### `thresholds` - Configurable traffic lights
 
 ```python
 from insurance_monitoring.thresholds import MonitoringThresholds, PSIThresholds
@@ -188,7 +182,7 @@ The `recommendation` property implements the three-stage decision tree from arXi
 | No drift in any test | NO_ACTION | Continue, schedule next review |
 | A/E red, Gini stable | RECALIBRATE | Update intercept/offset (hours of work) |
 | Gini red | REFIT | Rebuild model on recent data (weeks of work) |
-| Both red | INVESTIGATE | Manual review — check data quality first |
+| Both red | INVESTIGATE | Manual review - check data quality first |
 | Any amber | MONITOR_CLOSELY | Increase monitoring frequency |
 
 ## Databricks integration
@@ -197,7 +191,7 @@ The demo notebook at `notebooks/demo_monitoring.py` shows the full workflow on s
 
 ## Background
 
-Built by [Burning Cost](https://burningcost.com) — insurance pricing education and open-source tooling for UK actuaries and pricing teams.
+Built by [Burning Cost](https://burningcost.com) - insurance pricing education and open-source tooling for UK actuaries and pricing teams.
 
 The Gini drift test implements the framework from:
 > "Model Monitoring: A General Framework with an Application to Non-life Insurance Pricing", arXiv 2510.04556 (December 2025)
