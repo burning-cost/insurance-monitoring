@@ -99,7 +99,7 @@ def _gini_from_arrays(
     y = np.concatenate([[0.0], y])
 
     # Area under the Lorenz curve (trapezoid rule)
-    auc = float(np.trapz(y, x))
+    auc = float(np.trapezoid(y, x))
 
     # Gini = 1 - 2 * AUC_lorenz, equivalently = 2 * (0.5 - AUC_lorenz)
     # A random model has AUC = 0.5 → Gini = 0
