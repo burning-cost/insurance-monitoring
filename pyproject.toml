@@ -38,5 +38,8 @@ Homepage = "https://burningcost.com"
 [tool.hatch.build.targets.wheel]
 packages = ["src/insurance_monitoring"]
 
+[tool.uv]
+managed = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
