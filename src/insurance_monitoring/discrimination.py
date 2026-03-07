@@ -148,7 +148,7 @@ def gini_coefficient(
         import numpy as np
         from insurance_monitoring.discrimination import gini_coefficient
 
-        rng = np.random.default_rng(42)
+        rng = np.random.default_rng()
         predicted = rng.uniform(0.05, 0.20, 5000)
         actual = rng.poisson(predicted)
         gini = gini_coefficient(actual, predicted)
@@ -193,7 +193,7 @@ def gini_drift_test(
     Implements the asymptotic z-test from Theorem 1 of arXiv 2510.04556.
     The test statistic is::
 
-        z = (G_current - G_reference) / sqrt(Var(G_current) / n_current + Var(G_reference) / n_reference)
+        z = (G_current - G_reference) / sqrt(Var(G_hat_current) + Var(G_hat_reference))
 
     where variances are estimated by bootstrap (Algorithm 2 from the paper).
 
@@ -267,7 +267,7 @@ def gini_drift_test(
         pred = _to_numpy(predicted_arr)
         exp = _to_numpy_optional(exposure_arr)
         n = len(act)
-        rng = np.random.default_rng(42)
+        rng = np.random.default_rng()
         gini_samples = []
         for _ in range(n_boot):
             idx = rng.integers(0, n, size=n)
@@ -301,7 +301,7 @@ def gini_drift_test(
             "Either current_actual+current_predicted or current_variance must be provided"
         )
 
-    se = float(np.sqrt(var_ref / n_reference + var_cur / n_current))
+    se = float(np.sqrt(var_ref + var_cur))
     if se == 0:
         return {
             "z_statistic": float("nan"),

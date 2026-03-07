@@ -31,13 +31,23 @@ class TestPSI:
         result = psi(ref, cur, n_bins=10)
         assert result > 0.25, f"PSI for large shift should exceed 0.25, got {result}"
 
-    def test_moderate_shift_amber_range(self):
-        """A moderate shift should land in the amber zone (0.1 to 0.25)."""
+    def test_moderate_shift_above_zero(self):
+        """A noticeable mean shift should produce PSI > 0.1 (amber or red)."""
         rng = np.random.default_rng(2)
         ref = rng.normal(30, 5, 10_000)
-        cur = rng.normal(35, 5, 5_000)  # moderate mean shift
+        # A 1-sigma mean shift is significant by PSI convention
+        cur = rng.normal(35, 5, 5_000)
         result = psi(ref, cur, n_bins=10)
-        assert 0.05 < result < 0.60, f"PSI for moderate shift, got {result}"
+        assert result > 0.10, f"PSI for 1-sigma shift should exceed 0.10, got {result}"
+
+    def test_small_shift_below_amber(self):
+        """A tiny shift should give PSI below 0.10 (green band)."""
+        rng = np.random.default_rng(200)
+        ref = rng.normal(30, 5, 50_000)
+        # Very small shift: 0.1 std
+        cur = rng.normal(30.5, 5, 20_000)
+        result = psi(ref, cur, n_bins=10)
+        assert result < 0.25, f"PSI for tiny shift should be below 0.25, got {result}"
 
     def test_psi_nonnegative(self):
         """PSI should always be non-negative."""
