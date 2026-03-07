@@ -27,6 +27,7 @@ References
 
 from __future__ import annotations
 
+import math
 from typing import Optional, Union
 
 import numpy as np
@@ -263,9 +264,6 @@ def ae_ratio_ci(
         "n_claims": n_observed,
         "n_expected": n_expected,
     }
-
-
-import math
 
 
 def calibration_curve(
