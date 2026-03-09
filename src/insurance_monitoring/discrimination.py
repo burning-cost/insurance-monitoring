@@ -21,13 +21,23 @@ Key design choices in this implementation:
    one-month policy and a twelve-month policy should not have equal weight
    in the sort.
 
-3. Asymptotic z-test: the drift test is based on Theorem 1 of arXiv 2510.04556
-   which establishes sqrt(n) * (G_hat - G) -> N(0, sigma^2). The variance
-   estimator is the bootstrap Algorithm 2 from the same paper.
+3. Two-sample z-test (gini_drift_test): based on Theorem 1 of arXiv 2510.04556
+   which establishes sqrt(n) * (G_hat - G) -> N(0, sigma^2). Bootstrap variance
+   is estimated for both reference and current periods (Algorithm 2 from the
+   paper). This is appropriate when you have raw data for both periods.
+
+4. One-sample bootstrap test (gini_drift_test_onesample): implements
+   Algorithm 3 from arXiv 2510.04556. The training Gini is treated as fixed
+   (it was computed once at training time). Only the monitor sample is
+   bootstrapped to estimate the null distribution. This is the more natural
+   design for deployed model monitoring: you have a stored training Gini and
+   you want to test whether the monitoring data shows drift.
 
 References
 ----------
 - arXiv 2510.04556, Section 3: Gini score and monitoring framework
+- arXiv 2510.04556, Algorithm 2: Non-parametric bootstrap variance estimator
+- arXiv 2510.04556, Algorithm 3: One-sample monitoring test
 - Frees & Valdez (1998): actuarial use of Lorenz curves and Gini
 """
 
@@ -106,6 +116,32 @@ def _gini_from_arrays(
     # A perfect model has AUC = 0 → Gini = 1
     gini = 1.0 - 2.0 * auc
     return float(gini)
+
+
+def _bootstrap_gini_samples(
+    actual: np.ndarray,
+    predicted: np.ndarray,
+    exposure: Optional[np.ndarray],
+    n_bootstrap: int,
+    seed: Optional[int] = None,
+) -> np.ndarray:
+    """Bootstrap the Gini coefficient for a single sample.
+
+    Returns an array of n_bootstrap Gini replicates. Used internally by both
+    the two-sample drift test (Algorithm 2) and the one-sample drift test
+    (Algorithm 3) from arXiv 2510.04556.
+    """
+    n = len(actual)
+    rng = np.random.default_rng(seed)
+    gini_samples = np.empty(n_bootstrap)
+    for i in range(n_bootstrap):
+        idx = rng.integers(0, n, size=n)
+        gini_samples[i] = _gini_from_arrays(
+            actual[idx],
+            predicted[idx],
+            exposure[idx] if exposure is not None else None,
+        )
+    return gini_samples
 
 
 def gini_coefficient(
@@ -187,11 +223,12 @@ def gini_drift_test(
     reference_exposure: Optional[ArrayLike] = None,
     current_exposure: Optional[ArrayLike] = None,
     n_bootstrap: int = 200,
+    alpha: float = 0.32,
 ) -> dict[str, float]:
     """Statistical test for Gini coefficient drift between two periods.
 
-    Implements the asymptotic z-test from Theorem 1 of arXiv 2510.04556.
-    The test statistic is::
+    Implements the two-sample asymptotic z-test from Theorem 1 of
+    arXiv 2510.04556. The test statistic is::
 
         z = (G_current - G_reference) / sqrt(Var(G_hat_current) + Var(G_hat_reference))
 
@@ -200,6 +237,11 @@ def gini_drift_test(
     If raw data arrays are provided, bootstrap variance is computed directly.
     If only scalar Gini values and sample sizes are provided, the variance
     must be supplied explicitly (e.g., from a stored baseline).
+
+    For a monitoring context where you want to test the monitor sample against
+    a fixed stored training Gini, prefer ``gini_drift_test_onesample()`` instead.
+    The one-sample design (Algorithm 3) is more efficient because it does not
+    require raw reference data at monitoring time.
 
     Parameters
     ----------
@@ -223,6 +265,11 @@ def gini_drift_test(
         computed automatically.
     n_bootstrap:
         Number of bootstrap replicates for variance estimation. Default 200.
+    alpha:
+        Significance level for the ``significant`` flag. Default 0.32
+        (the one-sigma rule recommended by arXiv 2510.04556 for monitoring,
+        which catches drift earlier than alpha=0.05 at the cost of more false
+        positives). Use alpha=0.05 for confirmatory testing.
 
     Returns
     -------
@@ -232,7 +279,7 @@ def gini_drift_test(
         - ``reference_gini``: as supplied
         - ``current_gini``: as supplied
         - ``gini_change``: current_gini - reference_gini
-        - ``significant``: bool, True if p < 0.05
+        - ``significant``: bool, True if p < alpha
 
     Examples
     --------
@@ -266,18 +313,8 @@ def gini_drift_test(
         act = _to_numpy(actual_arr)
         pred = _to_numpy(predicted_arr)
         exp = _to_numpy_optional(exposure_arr)
-        n = len(act)
-        rng = np.random.default_rng()
-        gini_samples = []
-        for _ in range(n_boot):
-            idx = rng.integers(0, n, size=n)
-            g = _gini_from_arrays(
-                act[idx],
-                pred[idx],
-                exp[idx] if exp is not None else None,
-            )
-            gini_samples.append(g)
-        return float(np.var(gini_samples, ddof=1))
+        samples = _bootstrap_gini_samples(act, pred, exp, n_boot)
+        return float(np.var(samples, ddof=1))
 
     if reference_actual is not None and reference_predicted is not None:
         var_ref = _bootstrap_variance(
@@ -322,7 +359,148 @@ def gini_drift_test(
         "reference_gini": float(reference_gini),
         "current_gini": float(current_gini),
         "gini_change": float(gini_change),
-        "significant": bool(p_value < 0.05),
+        "significant": bool(p_value < alpha),
+    }
+
+
+def gini_drift_test_onesample(
+    training_gini: float,
+    monitor_actual: ArrayLike,
+    monitor_predicted: ArrayLike,
+    monitor_exposure: Optional[ArrayLike] = None,
+    n_bootstrap: int = 500,
+    alpha: float = 0.32,
+) -> dict[str, float]:
+    """One-sample bootstrap Gini drift test (Algorithm 3, arXiv 2510.04556).
+
+    Tests H0: Gini(monitor) = training_gini against H1: Gini(monitor) < training_gini.
+
+    The test design mirrors real deployed model monitoring: at training time you
+    compute and store the training Gini as a scalar. Months later, you observe new
+    data. You want to test whether the new data's Gini is significantly lower than
+    the stored value — without needing the original training data.
+
+    This is the one-sample variant (Algorithm 3) from arXiv 2510.04556. It
+    bootstraps only the monitor sample to estimate the null distribution of the
+    Gini estimator under the assumption that the true Gini equals the training
+    value. The z-statistic is::
+
+        z = (G_monitor - training_gini) / SE_boot(G_monitor)
+
+    where SE_boot is the bootstrap standard error from resampling the monitor
+    data. A large negative z indicates the monitor Gini has fallen below
+    what we expect from random sampling variation around the training value.
+
+    The key conceptual difference from ``gini_drift_test``:
+    - ``gini_drift_test``: two-sample test, SE = sqrt(Var_ref + Var_cur).
+      Requires raw reference data. Appropriate for A/B comparisons.
+    - ``gini_drift_test_onesample``: one-sample test, SE = SE_boot(monitor only).
+      Only needs stored training_gini scalar. Appropriate for deployed monitoring.
+
+    Parameters
+    ----------
+    training_gini:
+        Gini coefficient computed on the training (reference) data at training
+        time. Stored as a scalar, raw training data not needed.
+    monitor_actual:
+        Observed claims in the current monitoring period.
+    monitor_predicted:
+        Model predictions for the current monitoring period.
+    monitor_exposure:
+        Optional exposure weights for the current monitoring period.
+    n_bootstrap:
+        Number of bootstrap replicates for SE estimation. Default 500
+        (higher than two-sample default because we are not averaging two
+        variance estimates, so precision matters more here).
+    alpha:
+        Significance level for the ``significant`` flag. Default 0.32
+        (one-sigma rule, arXiv 2510.04556). Use 0.05 for confirmatory testing.
+
+    Returns
+    -------
+    dict with keys:
+        - ``z_statistic``: z-score (negative = monitor Gini below training Gini)
+        - ``p_value``: two-sided p-value
+        - ``training_gini``: as supplied
+        - ``monitor_gini``: point estimate from monitor data
+        - ``gini_change``: monitor_gini - training_gini
+        - ``se_bootstrap``: bootstrap standard error of the monitor Gini estimator
+        - ``significant``: bool, True if p < alpha
+
+    Examples
+    --------
+    Stored training Gini from months ago; test new monitoring period::
+
+        import numpy as np
+        from insurance_monitoring.discrimination import (
+            gini_coefficient,
+            gini_drift_test_onesample,
+        )
+
+        # At training time (stored in model registry):
+        training_gini = 0.48
+
+        # Months later, new monitoring data arrives:
+        rng = np.random.default_rng(42)
+        monitor_pred = rng.uniform(0.05, 0.20, 3_000)
+        monitor_act = rng.poisson(monitor_pred)
+
+        result = gini_drift_test_onesample(
+            training_gini=training_gini,
+            monitor_actual=monitor_act,
+            monitor_predicted=monitor_pred,
+            n_bootstrap=500,
+            alpha=0.32,
+        )
+        # result["significant"] == True means drift detected at alpha=0.32 level
+    """
+    act = _to_numpy(monitor_actual)
+    pred = _to_numpy(monitor_predicted)
+    exp = _to_numpy_optional(monitor_exposure)
+
+    if len(act) == 0:
+        raise ValueError("monitor_actual must be non-empty")
+    if len(act) != len(pred):
+        raise ValueError(
+            f"monitor_actual length ({len(act)}) != monitor_predicted length ({len(pred)})"
+        )
+    if exp is not None and len(exp) != len(act):
+        raise ValueError(
+            f"monitor_exposure length ({len(exp)}) != monitor_actual length ({len(act)})"
+        )
+
+    # Point estimate of Gini on monitor data
+    monitor_gini = _gini_from_arrays(act, pred, exp)
+
+    # Bootstrap SE: resample monitor data to get distribution of G_hat
+    # Under H0, this gives us the sampling uncertainty around the monitor Gini.
+    # We use this SE to standardise the deviation from training_gini.
+    boot_samples = _bootstrap_gini_samples(act, pred, exp, n_bootstrap)
+    se_boot = float(np.std(boot_samples, ddof=1))
+
+    if se_boot == 0.0:
+        return {
+            "z_statistic": float("nan"),
+            "p_value": float("nan"),
+            "training_gini": float(training_gini),
+            "monitor_gini": float(monitor_gini),
+            "gini_change": float(monitor_gini - training_gini),
+            "se_bootstrap": 0.0,
+            "significant": False,
+        }
+
+    gini_change = monitor_gini - training_gini
+    z = gini_change / se_boot
+    p_value = float(2.0 * (1.0 - stats.norm.cdf(abs(z))))
+
+    return {
+        "z_statistic": float(z),
+        "p_value": p_value,
+        "training_gini": float(training_gini),
+        "monitor_gini": float(monitor_gini),
+        "gini_change": float(gini_change),
+        "se_bootstrap": float(se_boot),
+        "significant": bool(p_value < alpha),
     }
 
 

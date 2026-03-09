@@ -14,6 +14,18 @@ Design rationale:
   Gini OK + A/E OK -> no action
   A/E bad only -> recalibrate
   Gini bad -> refit
+- When insurance-calibration is installed, adds Murphy decomposition to the
+  report. This distinguishes calibration drift (RECALIBRATE, fixable cheaply
+  by multiplying predictions by A/E balance ratio) from discrimination drift
+  (REFIT, requires retraining on recent data). The Murphy verdict takes
+  precedence over the simpler Gini/A/E heuristic when available.
+
+Murphy decomposition integration:
+- Optional dependency: insurance-calibration >= 0.1.0
+- Install: pip install insurance-calibration
+- If not installed, Murphy section is absent from report (no error, no warning)
+- Import is conditional at call time, not at module import time, so the library
+  always loads cleanly regardless of whether insurance-calibration is present.
 
 Usage
 -----
@@ -31,6 +43,7 @@ Usage
         feature_df_reference=train_features,
         feature_df_current=current_features,
         features=["driver_age", "vehicle_age", "ncd_years"],
+        murphy_distribution="poisson",  # optional Murphy decomposition
     )
     print(report.to_dict())
     print(report.to_polars())
@@ -52,6 +65,44 @@ from insurance_monitoring.thresholds import MonitoringThresholds
 
 
 ArrayLike = Union[np.ndarray, pl.Series]
+
+
+def _try_murphy(
+    actual: np.ndarray,
+    predicted: np.ndarray,
+    exposure: Optional[np.ndarray],
+    distribution: str,
+) -> Optional[dict]:
+    """Attempt Murphy decomposition via insurance-calibration.
+
+    Returns a dict of Murphy components if insurance-calibration is installed,
+    or None if it is not available. Never raises — failing silently is correct
+    here because Murphy is an enhancement, not a core monitoring requirement.
+    """
+    try:
+        from insurance_calibration._murphy import murphy_decomposition  # type: ignore[import]
+    except ImportError:
+        return None
+
+    try:
+        result = murphy_decomposition(
+            y=actual,
+            y_hat=predicted,
+            exposure=exposure,
+            distribution=distribution,
+        )
+        return {
+            "uncertainty": result.uncertainty,
+            "discrimination": result.discrimination,
+            "miscalibration": result.miscalibration,
+            "global_mcb": result.global_mcb,
+            "local_mcb": result.local_mcb,
+            "discrimination_pct": result.discrimination_pct,
+            "miscalibration_pct": result.miscalibration_pct,
+            "verdict": result.verdict,
+        }
+    except Exception:
+        return None
 
 
 @dataclass
@@ -89,6 +140,16 @@ class MonitoringReport:
         MonitoringThresholds instance. Defaults to industry-standard settings.
     n_bootstrap:
         Bootstrap replicates for Gini variance estimation. Default 200.
+    murphy_distribution:
+        If provided and insurance-calibration is installed, compute Murphy
+        decomposition on the current period data using this distribution.
+        Supported: 'poisson', 'gamma', 'tweedie', 'normal'. Default None
+        (Murphy section omitted from report).
+
+        The Murphy decomposition distinguishes calibration drift (MCB high,
+        GMCB > LMCB → RECALIBRATE) from discrimination drift (DSC low →
+        REFIT). When available, it sharpens the recommendation logic beyond
+        the simpler Gini/A/E heuristic.
 
     Attributes
     ----------
@@ -96,6 +157,8 @@ class MonitoringReport:
         Populated after fitting. Contains all metrics and traffic-light bands.
     recommendation : str
         Decision recommendation from the arXiv 2510.04556 decision tree.
+    murphy_available : bool
+        True if insurance-calibration is installed and Murphy was computed.
     """
 
     reference_actual: ArrayLike
@@ -111,10 +174,12 @@ class MonitoringReport:
     score_current: Optional[ArrayLike] = None
     thresholds: MonitoringThresholds = field(default_factory=MonitoringThresholds)
     n_bootstrap: int = 200
+    murphy_distribution: Optional[str] = None
 
     def __post_init__(self) -> None:
         self.results_: dict = {}
         self._fitted: bool = False
+        self.murphy_available: bool = False
         self._run()
 
     def _run(self) -> None:
@@ -203,6 +268,24 @@ class MonitoringReport:
                 "worst_feature": csi_df.filter(pl.col("csi") == max_csi)["feature"][0],
             }
 
+        # --- Murphy decomposition (optional) ---
+        # Requires insurance-calibration to be installed. Imported conditionally
+        # so that the monitoring library always loads cleanly without it.
+        if self.murphy_distribution is not None:
+            act_cur = np.asarray(self.current_actual, dtype=np.float64)
+            pred_cur = np.asarray(self.current_predicted, dtype=np.float64)
+            exp_cur = (
+                np.asarray(self.exposure, dtype=np.float64)
+                if self.exposure is not None
+                else None
+            )
+            murphy_result = _try_murphy(
+                act_cur, pred_cur, exp_cur, self.murphy_distribution
+            )
+            if murphy_result is not None:
+                results["murphy"] = murphy_result
+                self.murphy_available = True
+
         self.results_ = results
         self._fitted = True
 
@@ -210,11 +293,22 @@ class MonitoringReport:
     def recommendation(self) -> str:
         """Decision recommendation based on arXiv 2510.04556 three-stage framework.
 
+        When Murphy decomposition is available (insurance-calibration installed and
+        murphy_distribution set), the recommendation uses the Murphy verdict to
+        sharpen the RECALIBRATE vs REFIT distinction:
+
+        - Murphy says REFIT (DSC degraded, local miscalibration dominates) → REFIT
+        - Murphy says RECALIBRATE (global miscalibration dominates) → RECALIBRATE
+          even if the Gini z-test hasn't crossed red yet
+
+        Without Murphy, falls back to the simpler Gini/A/E heuristic:
+
         Returns one of:
         - 'NO_ACTION': no significant drift detected
         - 'RECALIBRATE': A/E ratio drifted but Gini stable — update intercept
         - 'REFIT': Gini has degraded — rebuild model on recent data
-        - 'INVESTIGATE': multiple signals — manual review required
+        - 'INVESTIGATE': multiple conflicting signals — manual review required
+        - 'MONITOR_CLOSELY': amber signals but no red — watch the trend
         """
         if not self._fitted:
             return "NOT_RUN"
@@ -224,6 +318,23 @@ class MonitoringReport:
         gini_red = self.results_["gini"]["band"] == "red"
         gini_amber = self.results_["gini"]["band"] == "amber"
 
+        # Murphy verdict takes precedence when available: it directly tests
+        # whether the degradation is a calibration issue (cheap to fix) or
+        # a discrimination issue (requires refit).
+        if self.murphy_available and "murphy" in self.results_:
+            murphy_verdict = self.results_["murphy"]["verdict"]
+            if murphy_verdict == "REFIT" or gini_red:
+                return "REFIT"
+            elif murphy_verdict == "RECALIBRATE" or (ae_red and not gini_red):
+                return "RECALIBRATE"
+            elif gini_amber and ae_red:
+                return "INVESTIGATE"
+            elif ae_amber or gini_amber:
+                return "MONITOR_CLOSELY"
+            else:
+                return "NO_ACTION"
+
+        # Fallback: simpler Gini/A/E heuristic (original v0.1.0 logic)
         if gini_red:
             return "REFIT"
         elif gini_amber and ae_red:
@@ -243,6 +354,7 @@ class MonitoringReport:
         return {
             "results": self.results_,
             "recommendation": self.recommendation,
+            "murphy_available": self.murphy_available,
         }
 
     def to_polars(self) -> pl.DataFrame:
@@ -251,6 +363,8 @@ class MonitoringReport:
         Columns: ``metric``, ``value``, ``band``.
 
         CSI per-feature rows are included with metric names like 'csi_driver_age'.
+        Murphy rows are included as 'murphy_discrimination', 'murphy_miscalibration',
+        etc. when insurance-calibration is installed and murphy_distribution is set.
         """
         rows = []
 
@@ -276,6 +390,42 @@ class MonitoringReport:
                     "value": csi_row["csi"],
                     "band": csi_row["band"],
                 })
+
+        # Murphy decomposition rows — present only when insurance-calibration installed
+        if "murphy" in self.results_:
+            m = self.results_["murphy"]
+            murphy_verdict = m["verdict"]
+            # Numeric components — band encodes the Murphy verdict for easy filtering
+            rows.append({
+                "metric": "murphy_discrimination",
+                "value": m["discrimination"],
+                "band": murphy_verdict,
+            })
+            rows.append({
+                "metric": "murphy_miscalibration",
+                "value": m["miscalibration"],
+                "band": murphy_verdict,
+            })
+            rows.append({
+                "metric": "murphy_discrimination_pct",
+                "value": m["discrimination_pct"],
+                "band": murphy_verdict,
+            })
+            rows.append({
+                "metric": "murphy_miscalibration_pct",
+                "value": m["miscalibration_pct"],
+                "band": murphy_verdict,
+            })
+            rows.append({
+                "metric": "murphy_global_mcb",
+                "value": m["global_mcb"],
+                "band": murphy_verdict,
+            })
+            rows.append({
+                "metric": "murphy_local_mcb",
+                "value": m["local_mcb"],
+                "band": murphy_verdict,
+            })
 
         rows.append({
             "metric": "recommendation",

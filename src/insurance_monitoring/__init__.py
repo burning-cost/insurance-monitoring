@@ -8,7 +8,7 @@ drift
 calibration
     A/E ratio, Hosmer-Lemeshow, calibration curves for model calibration checks.
 discrimination
-    Gini coefficient, Gini drift test (arXiv 2510.04556), Lorenz curves.
+    Gini coefficient, Gini drift tests (arXiv 2510.04556), Lorenz curves.
 report
     MonitoringReport — combined check with traffic-light output.
 thresholds
@@ -22,6 +22,18 @@ Quick start
     from insurance_monitoring.drift import psi
     from insurance_monitoring.calibration import ae_ratio
     from insurance_monitoring.discrimination import gini_coefficient
+
+v0.2.0 additions
+----------------
+- ``gini_drift_test_onesample``: one-sample bootstrap design (Algorithm 3,
+  arXiv 2510.04556). Tests monitor data against a stored training Gini scalar
+  without needing raw reference data. More natural for deployed model monitoring.
+- Murphy decomposition in ``MonitoringReport``: set ``murphy_distribution``
+  to enable MCB/DSC decomposition when insurance-calibration is installed.
+  Sharpens the RECALIBRATE vs REFIT recommendation.
+- ``alpha=0.32`` default in ``GiniDriftThresholds`` and all drift tests, per
+  arXiv 2510.04556 recommendation for monitoring (one-sigma rule gives earlier
+  signals, reducing catastrophic misses).
 """
 
 from insurance_monitoring.calibration import (
@@ -33,6 +45,7 @@ from insurance_monitoring.calibration import (
 from insurance_monitoring.discrimination import (
     gini_coefficient,
     gini_drift_test,
+    gini_drift_test_onesample,
     lorenz_curve,
 )
 from insurance_monitoring.drift import (
@@ -49,7 +62,7 @@ from insurance_monitoring.thresholds import (
     PSIThresholds,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     # drift
@@ -65,6 +78,7 @@ __all__ = [
     # discrimination
     "gini_coefficient",
     "gini_drift_test",
+    "gini_drift_test_onesample",
     "lorenz_curve",
     # report
     "MonitoringReport",

@@ -13,7 +13,12 @@ Notes on calibration:
   depending on your portfolio size.
 - A/E thresholds assume fully developed claims. Apply development factors before
   comparing against these bands.
-- Gini drift thresholds correspond to the z-test p-values from arXiv 2510.04556.
+- Gini drift thresholds: arXiv 2510.04556 explicitly recommends against using
+  alpha=0.05 for routine monitoring. The paper argues that alpha=0.32 (the
+  one-sigma rule) gives better detection power during ongoing monitoring — more
+  frequent early signals in exchange for more false positives. Reserve alpha=0.05
+  for the formal governance escalation decision. The new defaults reflect this
+  recommendation: amber_p_value=0.32, red_p_value=0.10.
 """
 
 from dataclasses import dataclass, field
@@ -86,15 +91,30 @@ class GiniDriftThresholds:
     The z-test compares the current Gini coefficient against the reference
     period distribution.
 
+    The paper explicitly recommends alpha=0.32 (one-sigma rule) for routine
+    monitoring rather than the conventional alpha=0.05. The reasoning: in a
+    monitoring context, missing a real deterioration (Type II error) is more
+    costly than a false alarm (Type I error). Frequent signals at alpha=0.32
+    prompt human review; the formal governance escalation uses alpha=0.05.
+
     Attributes
     ----------
     amber_p_value:
         Two-sided p-value below which we flag amber (monitor closely).
+        Default 0.32 per arXiv 2510.04556 monitoring recommendation.
     red_p_value:
-        Two-sided p-value below which we flag red (Gini has significantly degraded).
+        Two-sided p-value below which we flag red (Gini has significantly
+        degraded, escalate). Default 0.10 for monitoring context.
+
+    Notes
+    -----
+    To use traditional statistical thresholds (e.g. for regulatory reporting
+    or backtesting), set amber_p_value=0.10 and red_p_value=0.05::
+
+        GiniDriftThresholds(amber_p_value=0.10, red_p_value=0.05)
     """
-    amber_p_value: float = 0.10
-    red_p_value: float = 0.05
+    amber_p_value: float = 0.32
+    red_p_value: float = 0.10
 
     def classify(self, p_value: float) -> str:
         """Return 'green', 'amber', or 'red' for a Gini drift p-value."""
@@ -117,6 +137,13 @@ class MonitoringThresholds:
         from insurance_monitoring.thresholds import MonitoringThresholds, PSIThresholds
         thresholds = MonitoringThresholds(
             psi=PSIThresholds(green_max=0.05, amber_max=0.15),
+        )
+
+    Use traditional statistical thresholds for regulatory/backtesting use::
+
+        from insurance_monitoring.thresholds import GiniDriftThresholds
+        thresholds = MonitoringThresholds(
+            gini_drift=GiniDriftThresholds(amber_p_value=0.10, red_p_value=0.05),
         )
     """
     psi: PSIThresholds = field(default_factory=PSIThresholds)

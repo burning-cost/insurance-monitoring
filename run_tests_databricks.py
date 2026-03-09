@@ -24,7 +24,7 @@ from databricks.sdk.service.workspace import ImportFormat, Language
 w = WorkspaceClient()
 
 WORKSPACE_PATH = "/Workspace/insurance-monitoring"
-PROJECT_ROOT = "/home/ralph/insurance-monitoring"
+PROJECT_ROOT = "/home/ralph/repos/insurance-monitoring"
 
 UPLOAD_PATHS = [
     "src/insurance_monitoring/__init__.py",
@@ -37,8 +37,11 @@ UPLOAD_PATHS = [
     "tests/test_drift.py",
     "tests/test_calibration.py",
     "tests/test_discrimination.py",
+    "tests/test_discrimination_v2.py",
     "tests/test_thresholds.py",
+    "tests/test_thresholds_v2.py",
     "tests/test_report.py",
+    "tests/test_report_v2.py",
     "pyproject.toml",
     "README.md",
 ]
@@ -105,7 +108,7 @@ upload_notebook(
 print("\nSubmitting test job (serverless compute)...")
 
 run = w.jobs.submit(
-    run_name="insurance-monitoring-tests",
+    run_name="insurance-monitoring-tests-v2",
     tasks=[
         jobs.SubmitTask(
             task_key="run_tests",
