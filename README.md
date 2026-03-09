@@ -1,11 +1,12 @@
 # insurance-monitoring
+
 [![CI](https://github.com/burning-cost/insurance-monitoring/actions/workflows/ci.yml/badge.svg)](https://github.com/burning-cost/insurance-monitoring/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/insurance-monitoring)](https://pypi.org/project/insurance-monitoring/)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
-![Python](https://img.shields.io/badge/python-3.10%2B-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green) ![PyPI](https://img.shields.io/pypi/v/insurance-monitoring)
+Deployed insurance pricing models go stale. The portfolio ages, the claims environment shifts, regulators change the rules. Without systematic monitoring you find out about it when the loss ratio deteriorates — typically 12 to 18 months after the model started misfiring.
 
-Deployed insurance pricing models go stale. The portfolio ages, the claims environment shifts, regulators change the rules. Without systematic monitoring you find out about it when the loss ratio deteriorates - typically 12 to 18 months after the model started misfiring.
-
-This library gives UK pricing teams the specific tools to catch that drift early: exposure-weighted PSI for feature distribution, A/E ratios with Poisson confidence intervals for calibration, and the Gini drift z-test from [arXiv 2510.04556](https://arxiv.org/abs/2510.04556) - currently the only statistically rigorous actuarial monitoring framework in the literature.
+This library gives UK pricing teams the specific tools to catch that drift early: exposure-weighted PSI for feature distribution, A/E ratios with Poisson confidence intervals for calibration, and the Gini drift z-test from [arXiv 2510.04556](https://arxiv.org/abs/2510.04556) — currently the only statistically rigorous actuarial monitoring framework in the literature.
 
 It produces traffic-light outputs (green/amber/red) that match how a Head of Pricing actually reads a monitoring pack, and a decision recommendation based on the Murphy score decomposition: recalibrate (update the intercept, one hour of work) or refit (rebuild the model, weeks of work).
 
@@ -85,7 +86,7 @@ d = wasserstein_distance(driver_ages_train, driver_ages_q1_2025)
 print(f"Average driver age shifted by {d:.1f} years")
 ```
 
-**On exposure-weighted PSI**: standard PSI treats every policy equally regardless of how long it was on risk. If your book renews quarterly and mixes 1-month and 12-month policies, unweighted PSI is wrong. The `exposure_weights` parameter weights bin proportions by earned exposure - correct for insurance.
+**On exposure-weighted PSI**: standard PSI treats every policy equally regardless of how long it was on risk. If your book renews quarterly and mixes 1-month and 12-month policies, unweighted PSI is wrong. The `exposure_weights` parameter weights bin proportions by earned exposure — correct for insurance.
 
 ### `calibration` - A/E ratio and calibration checks
 
@@ -105,7 +106,7 @@ seg_ae = ae_ratio(
 # Returns Polars DataFrame: segment | actual | expected | ae_ratio | n_policies
 ```
 
-**On the IBNR problem**: the A/E ratio is only reliable on mature accident periods. For motor, that means at least 12 months of claims development. For liability, 24+ months. If you run monthly monitoring on recent accident months, apply chain-ladder development factors first - otherwise you will see artificially low A/E ratios that recover as claims develop.
+**On the IBNR problem**: the A/E ratio is only reliable on mature accident periods. For motor, that means at least 12 months of claims development. For liability, 24+ months. If you run monthly monitoring on recent accident months, apply chain-ladder development factors first — otherwise you will see artificially low A/E ratios that recover as claims develop.
 
 ### `discrimination` - Gini drift test
 
@@ -128,7 +129,7 @@ result = gini_drift_test(
 # {'z_statistic': -1.93, 'p_value': 0.054, 'gini_change': -0.03, 'significant': False}
 ```
 
-The Gini drift test is the distinguishing feature of this library. Most monitoring tools will tell you whether A/E has moved. This tells you whether the model's *ranking* has degraded - the difference between a cheap recalibration and a full refit.
+The Gini drift test is the distinguishing feature of this library. Most monitoring tools will tell you whether A/E has moved. This tells you whether the model's *ranking* has degraded — the difference between a cheap recalibration and a full refit.
 
 ### `report` - Combined monitoring in one call
 
@@ -183,7 +184,7 @@ The `recommendation` property implements the three-stage decision tree from arXi
 | No drift in any test | NO_ACTION | Continue, schedule next review |
 | A/E red, Gini stable | RECALIBRATE | Update intercept/offset (hours of work) |
 | Gini red | REFIT | Rebuild model on recent data (weeks of work) |
-| Both red | INVESTIGATE | Manual review - check data quality first |
+| Both red | INVESTIGATE | Manual review — check data quality first |
 | Any amber | MONITOR_CLOSELY | Increase monitoring frequency |
 
 ## Databricks integration
@@ -192,54 +193,24 @@ The demo notebook at `notebooks/demo_monitoring.py` shows the full workflow on s
 
 ## Background
 
-Built by [Burning Cost](https://burningcost.com) - insurance pricing education and open-source tooling for UK actuaries and pricing teams.
-
 The Gini drift test implements the framework from:
 > "Model Monitoring: A General Framework with an Application to Non-life Insurance Pricing", arXiv 2510.04556 (December 2025)
 
-This is the only published actuarially-specific monitoring framework with proper asymptotic theory. As of March 2026, no other Python library implements it.
+## Read more
 
----
+[Your Pricing Model is Drifting (and You Probably Can't Tell)](https://burning-cost.github.io/2026/03/07/your-pricing-model-is-drifting.html) — why PSI alone is insufficient, and what it means when A/E is stable but the Gini is falling.
 
-## Other Burning Cost libraries
+## Related libraries
 
-**Model building**
+| Library | Why it's relevant |
+|---------|------------------|
+| [shap-relativities](https://github.com/burning-cost/shap-relativities) | Extract rating relativities from GBMs — when monitoring flags REFIT, use SHAP to diagnose which factors have drifted most |
+| [insurance-interactions](https://github.com/burning-cost/insurance-interactions) | GLM interaction detection — a refit triggered by Gini degradation may need new interactions added |
+| [insurance-causal-policy](https://github.com/burning-cost/insurance-causal-policy) | SDID causal evaluation — if monitoring shows deterioration after a rate change, use this to isolate cause |
+| [insurance-cv](https://github.com/burning-cost/insurance-cv) | Walk-forward cross-validation — use monitoring outputs to decide when to retrain and validate the retrained model |
+| [rate-optimiser](https://github.com/burning-cost/rate-optimiser) | Constrained rate change optimisation — monitoring informs when a rate adjustment is needed; rate-optimiser determines the right one |
 
-| Library | Description |
-|---------|-------------|
-| [shap-relativities](https://github.com/burningcost/shap-relativities) | Extract rating relativities from GBMs using SHAP |
-| [insurance-interactions](https://github.com/burningcost/insurance-interactions) | Automated GLM interaction detection via CANN and NID scores |
-| [insurance-cv](https://github.com/burningcost/insurance-cv) | Walk-forward cross-validation respecting IBNR structure |
-
-**Uncertainty quantification**
-
-| Library | Description |
-|---------|-------------|
-| [insurance-conformal](https://github.com/burningcost/insurance-conformal) | Distribution-free prediction intervals for Tweedie models |
-| [bayesian-pricing](https://github.com/burningcost/bayesian-pricing) | Hierarchical Bayesian models for thin-data segments |
-| [credibility](https://github.com/burningcost/credibility) | Bühlmann-Straub credibility weighting |
-
-**Deployment and optimisation**
-
-| Library | Description |
-|---------|-------------|
-| [rate-optimiser](https://github.com/burningcost/rate-optimiser) | Constrained rate change optimisation with FCA PS21/5 compliance |
-| [insurance-demand](https://github.com/burningcost/insurance-demand) | Conversion, retention, and price elasticity modelling |
-
-**Governance**
-
-| Library | Description |
-|---------|-------------|
-| [insurance-fairness](https://github.com/burningcost/insurance-fairness) | Proxy discrimination auditing for UK insurance models |
-| [insurance-causal](https://github.com/burningcost/insurance-causal) | Double Machine Learning for causal pricing inference |
-
-**Spatial**
-
-| Library | Description |
-|---------|-------------|
-| [insurance-spatial](https://github.com/burningcost/insurance-spatial) | BYM2 spatial territory ratemaking for UK personal lines |
-
-[All libraries →](https://burningcost.github.io)
+[All Burning Cost libraries →](https://burning-cost.github.io)
 
 ---
 
