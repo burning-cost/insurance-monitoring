@@ -1,4 +1,5 @@
 # insurance-monitoring
+[![CI](https://github.com/burning-cost/insurance-monitoring/actions/workflows/ci.yml/badge.svg)](https://github.com/burning-cost/insurance-monitoring/actions/workflows/ci.yml)
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-green) ![PyPI](https://img.shields.io/pypi/v/insurance-monitoring)
 
