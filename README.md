@@ -6,9 +6,12 @@
 
 Deployed insurance pricing models go stale. The portfolio ages, the claims environment shifts, regulators change the rules. Without systematic monitoring you find out about it when the loss ratio deteriorates — typically 12 to 18 months after the model started misfiring.
 
-This library gives UK pricing teams the specific tools to catch that drift early: exposure-weighted PSI for feature distribution, A/E ratios with Poisson confidence intervals for calibration, and the Gini drift z-test from [arXiv 2510.04556](https://arxiv.org/abs/2510.04556) — currently the only statistically rigorous actuarial monitoring framework in the literature.
+This library gives UK pricing teams two things in one install:
 
-It produces traffic-light outputs (green/amber/red) that match how a Head of Pricing actually reads a monitoring pack, and a decision recommendation based on the Murphy score decomposition: recalibrate (update the intercept, one hour of work) or refit (rebuild the model, weeks of work).
+1. **Ongoing model monitoring** — exposure-weighted PSI for feature distribution, A/E ratios with Poisson confidence intervals, and the Gini drift z-test from [arXiv 2510.04556](https://arxiv.org/abs/2510.04556).
+2. **Deep calibration diagnostics** — balance property testing, auto-calibration, Murphy decomposition (UNC/DSC/MCB), and rectification methods for model sign-off and root-cause analysis (Lindholm & Wüthrich, SAJ 2025).
+
+The two layers serve the same person — the pricing actuary — at different points in the model lifecycle. Use the monitoring layer for monthly/quarterly dashboards. Use the calibration suite when a model needs to be signed off or when monitoring flags a problem you need to diagnose.
 
 **No scikit-learn. No pandas. Polars-native throughout.**
 
@@ -31,22 +34,8 @@ pred_ref = rng.uniform(0.05, 0.20, 50_000)
 act_ref = rng.poisson(pred_ref).astype(float)
 
 # Current monitoring period (18 months later)
-# Portfolio has aged, young drivers more numerous, claim rate up
 pred_cur = rng.uniform(0.05, 0.20, 15_000)
 act_cur = rng.poisson(pred_cur * 1.08).astype(float)  # model is 8% optimistic
-
-# Quick check: feature drift on model score
-score_psi = psi(pred_ref, pred_cur)
-print(f"Score PSI: {score_psi:.3f}")  # < 0.10 = stable, > 0.25 = investigate
-
-# A/E ratio (aggregate)
-from insurance_monitoring import ae_ratio_ci
-ae_result = ae_ratio_ci(act_cur, pred_cur)
-print(f"A/E: {ae_result['ae']:.3f}  (95% CI: {ae_result['lower']:.3f}–{ae_result['upper']:.3f})")
-
-# Gini coefficient (discrimination)
-gini = gini_coefficient(act_cur, pred_cur)
-print(f"Gini: {gini:.3f}")
 
 # Combined monitoring report with traffic lights
 report = MonitoringReport(
@@ -54,12 +43,69 @@ report = MonitoringReport(
     reference_predicted=pred_ref,
     current_actual=act_cur,
     current_predicted=pred_cur,
+    murphy_distribution="poisson",  # optional Murphy decomposition, now built in
 )
-print(report.recommendation)  # 'NO_ACTION' | 'RECALIBRATE' | 'REFIT' | 'INVESTIGATE'
-print(report.to_polars())     # flat DataFrame with metric / value / band columns
+print(report.recommendation)   # 'NO_ACTION' | 'RECALIBRATE' | 'REFIT' | 'INVESTIGATE'
+print(report.to_polars())      # flat DataFrame with metric / value / band columns
 ```
 
 ## Modules
+
+### `calibration` - A/E ratio, calibration suite, Murphy decomposition
+
+The calibration module has two layers. Use A/E for routine monitoring. Use the calibration suite for model sign-off.
+
+**A/E ratio monitoring:**
+
+```python
+from insurance_monitoring.calibration import ae_ratio, ae_ratio_ci
+
+# Aggregate A/E with Poisson CI (exact Garwood intervals)
+result = ae_ratio_ci(actual, predicted, exposure=exposure)
+# {'ae': 1.08, 'lower': 1.04, 'upper': 1.12, 'n_claims': 342, 'n_expected': 317}
+
+# Segmented A/E: where is the model misfiring?
+seg_ae = ae_ratio(
+    actual, predicted, exposure=exposure,
+    segments=driver_age_bands,
+)
+# Returns Polars DataFrame: segment | actual | expected | ae_ratio | n_policies
+```
+
+**Calibration suite — model sign-off:**
+
+```python
+from insurance_monitoring.calibration import CalibrationChecker
+
+checker = CalibrationChecker(distribution='poisson', alpha=0.05)
+report = checker.check(y_holdout, y_hat_holdout, exposure_holdout)
+
+print(report.verdict())    # 'OK' | 'RECALIBRATE' | 'REFIT'
+print(report.summary())    # human-readable diagnostic paragraph
+
+# Individual components
+print(report.balance)          # BalanceResult: global A/E ratio with bootstrap CI
+print(report.auto_calibration) # AutoCalibResult: per-cohort bootstrap MCB test
+print(report.murphy)           # MurphyResult: UNC/DSC/MCB/GMCB/LMCB decomposition
+```
+
+**Murphy decomposition directly:**
+
+```python
+from insurance_monitoring.calibration import murphy_decomposition
+
+result = murphy_decomposition(y, y_hat, exposure, distribution='poisson')
+# result.uncertainty     # baseline deviance (data difficulty)
+# result.discrimination  # DSC: skill from ranking
+# result.miscalibration  # MCB: excess from wrong price levels
+# result.global_mcb      # GMCB: portion fixed by multiplying all predictions by A/E
+# result.local_mcb       # LMCB: portion requiring model refit
+# result.verdict         # 'OK' | 'RECALIBRATE' | 'REFIT'
+```
+
+**Why two calibration layers?** The A/E ratio answers "is the model globally right?". The Murphy decomposition answers "if it is wrong, is it wrong in a cheap way (scale factor) or an expensive way (the ranking is broken)?". You need both to make the RECALIBRATE vs REFIT decision correctly.
+
+**On the IBNR problem**: the A/E ratio and balance test are only reliable on mature accident periods. For motor, at least 12 months of claims development. For liability, 24+ months. Apply chain-ladder factors first when monitoring recent accident months.
 
 ### `drift` - Feature distribution monitoring
 
@@ -86,27 +132,7 @@ d = wasserstein_distance(driver_ages_train, driver_ages_q1_2025)
 print(f"Average driver age shifted by {d:.1f} years")
 ```
 
-**On exposure-weighted PSI**: standard PSI treats every policy equally regardless of how long it was on risk. If your book renews quarterly and mixes 1-month and 12-month policies, unweighted PSI is wrong. The `exposure_weights` parameter weights bin proportions by earned exposure — correct for insurance.
-
-### `calibration` - A/E ratio and calibration checks
-
-```python
-from insurance_monitoring.calibration import ae_ratio, ae_ratio_ci
-
-# Aggregate A/E with Poisson CI (exact Garwood intervals)
-result = ae_ratio_ci(actual, predicted, exposure=exposure)
-# {'ae': 1.08, 'lower': 1.04, 'upper': 1.12, 'n_claims': 342, 'n_expected': 317}
-
-# Segmented A/E: where is the model misfiring?
-from insurance_monitoring.calibration import ae_ratio
-seg_ae = ae_ratio(
-    actual, predicted, exposure=exposure,
-    segments=driver_age_bands,   # np.array(['17-24', '25-39', ...])
-)
-# Returns Polars DataFrame: segment | actual | expected | ae_ratio | n_policies
-```
-
-**On the IBNR problem**: the A/E ratio is only reliable on mature accident periods. For motor, that means at least 12 months of claims development. For liability, 24+ months. If you run monthly monitoring on recent accident months, apply chain-ladder development factors first — otherwise you will see artificially low A/E ratios that recover as claims develop.
+**On exposure-weighted PSI**: standard PSI treats every policy equally regardless of how long it was on risk. If your book renews quarterly and mixes 1-month and 12-month policies, unweighted PSI is wrong. The `exposure_weights` parameter weights bin proportions by earned exposure.
 
 ### `discrimination` - Gini drift test
 
@@ -129,7 +155,7 @@ result = gini_drift_test(
 # {'z_statistic': -1.93, 'p_value': 0.054, 'gini_change': -0.03, 'significant': False}
 ```
 
-The Gini drift test is the distinguishing feature of this library. Most monitoring tools will tell you whether A/E has moved. This tells you whether the model's *ranking* has degraded — the difference between a cheap recalibration and a full refit.
+The Gini drift test is the distinguishing feature of this library. Most monitoring tools tell you whether A/E has moved. This tells you whether the model's *ranking* has degraded — the difference between a cheap recalibration and a full refit.
 
 ### `report` - Combined monitoring in one call
 
@@ -146,6 +172,7 @@ report = MonitoringReport(
     feature_df_reference=feat_ref,  # Polars DataFrame
     feature_df_current=feat_cur,
     features=["driver_age", "vehicle_age", "ncd_years"],
+    murphy_distribution="poisson",  # built in since v0.3.0, no extra install needed
 )
 
 print(report.recommendation)
@@ -157,8 +184,9 @@ df = report.to_polars()
 # gini_current        | 0.39   | amber
 # gini_p_value        | 0.054  | amber
 # csi_driver_age      | 0.14   | amber
-# csi_vehicle_age     | 0.03   | green
-# recommendation      | nan    | REFIT
+# murphy_discrimination | 0.041 | RECALIBRATE
+# murphy_miscalibration | 0.003 | RECALIBRATE
+# recommendation      | nan    | RECALIBRATE
 ```
 
 ### `thresholds` - Configurable traffic lights
@@ -173,7 +201,7 @@ custom = MonitoringThresholds(
 report = MonitoringReport(..., thresholds=custom)
 ```
 
-Default thresholds follow industry convention (PSI: 0.1/0.25 from FICO/credit scoring; A/E: 0.95–1.05 green, 0.90–1.10 amber; Gini: p < 0.10 amber, p < 0.05 red).
+Default thresholds follow industry convention (PSI: 0.1/0.25 from FICO/credit scoring; A/E: 0.95–1.05 green, 0.90–1.10 amber; Gini: p < 0.32 amber, p < 0.10 red per arXiv 2510.04556 recommendation).
 
 ## Decision framework
 
@@ -187,14 +215,60 @@ The `recommendation` property implements the three-stage decision tree from arXi
 | Both red | INVESTIGATE | Manual review — check data quality first |
 | Any amber | MONITOR_CLOSELY | Increase monitoring frequency |
 
+When `murphy_distribution` is set, the Murphy decomposition sharpens the RECALIBRATE vs REFIT distinction: if GMCB > LMCB (global shift dominates), RECALIBRATE; if LMCB >= GMCB (local structure is broken), REFIT.
+
+## Calibration plots
+
+The calibration module includes matplotlib visualisations for model documentation:
+
+```python
+from insurance_monitoring.calibration import (
+    CalibrationChecker,
+    plot_auto_calibration,
+    plot_murphy,
+    plot_calibration_report,
+)
+
+checker = CalibrationChecker(distribution='poisson')
+report = checker.check(y, y_hat, exposure)
+
+# Three-panel combined figure (auto-calibration + Murphy bar + per-bin heatmap)
+fig = plot_calibration_report(report)
+fig.savefig("model_calibration_sign_off.pdf")
+```
+
 ## Databricks integration
 
 The demo notebook at `notebooks/demo_monitoring.py` shows the full workflow on synthetic motor data and runs on Databricks serverless. Upload it to your workspace and schedule it as a monthly job against your MLflow inference table.
 
+## What changed in v0.3.0
+
+`insurance-calibration` was a separate package covering the three-property calibration framework (Lindholm & Wüthrich 2025) and Murphy decomposition. As of v0.3.0 it is absorbed into `insurance-monitoring` as the `calibration` sub-package.
+
+All existing imports are unchanged. New imports follow the same pattern:
+
+```python
+# These already worked:
+from insurance_monitoring.calibration import ae_ratio, ae_ratio_ci
+
+# These are new in v0.3.0 (previously required separate install):
+from insurance_monitoring.calibration import (
+    check_balance, check_auto_calibration, murphy_decomposition,
+    rectify_balance, isotonic_recalibrate, CalibrationChecker,
+    BalanceResult, AutoCalibResult, MurphyResult, CalibrationReport,
+    deviance, poisson_deviance, gamma_deviance,
+    plot_auto_calibration, plot_murphy, plot_calibration_report,
+)
+```
+
 ## Background
 
-The Gini drift test implements the framework from:
+The monitoring framework implements:
 > "Model Monitoring: A General Framework with an Application to Non-life Insurance Pricing", arXiv 2510.04556 (December 2025)
+
+The calibration suite implements:
+> Lindholm & Wüthrich: "Three calibration properties for insurance pricing models" (SAJ 2025)
+> Brauer et al.: arXiv:2510.04556 Section 4 — Murphy decomposition and the MCB bootstrap test
 
 ## Read more
 

@@ -1,6 +1,6 @@
 # Databricks notebook source
 # COMMAND ----------
-# MAGIC %pip install polars scipy pytest pytest-cov insurance-calibration
+# MAGIC %pip install polars scipy matplotlib pytest pytest-cov
 
 # COMMAND ----------
 dbutils.library.restartPython()
@@ -18,12 +18,9 @@ import insurance_monitoring
 print(f"insurance_monitoring loaded from: {insurance_monitoring.__file__}")
 print(f"Version: {insurance_monitoring.__version__}")
 
-# Check whether insurance-calibration is available (optional dependency)
-try:
-    import insurance_calibration
-    print(f"insurance_calibration available: {insurance_calibration.__version__}")
-except ImportError:
-    print("insurance_calibration NOT available — Murphy tests will run in graceful-degradation mode")
+# Murphy decomposition is now built in — no separate install needed
+from insurance_monitoring.calibration import murphy_decomposition, CalibrationChecker
+print("CalibrationChecker available (built in since v0.3.0)")
 
 # COMMAND ----------
 # Databricks workspace filesystem does not support __pycache__ creation.
