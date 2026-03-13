@@ -274,6 +274,20 @@ The calibration suite implements:
 
 [Your Pricing Model is Drifting (and You Probably Can't Tell)](https://burning-cost.github.io/2026/03/07/your-pricing-model-is-drifting.html) — why PSI alone is insufficient, and what it means when A/E is stable but the Gini is falling.
 
+---
+
+## Capabilities Demo
+
+Demonstrated on synthetic UK motor data with three deliberately induced failure modes: covariate shift (older drivers enter the book), calibration deterioration (claim frequency inflated for a segment), and stale discrimination (model trained on old data, portfolio composition changed). Full notebook: `notebooks/benchmark.py`.
+
+- PSI/CSI flags the covariate shift — feature distributions in the monitoring period diverge from training, triggering configurable traffic lights (PSI > 0.2 = red)
+- A/E ratio with confidence intervals catches calibration drift — segment-level actual-to-expected ratios with statistical significance tests, not just point estimates
+- Gini drift z-test (arXiv 2510.04556) detects discrimination loss — the discriminatory power of the model has declined, which a standard A/E dashboard would miss
+- `MonitoringReport` assembles all three checks into a single traffic-light summary with a recommended action: monitor, investigate, or refit
+
+**When to use:** Any time more than a month has passed since the last model refit. A typical UK motor pricing cycle is 6–12 months between refits; covariate shift and calibration drift accumulate silently in between. Run the monitoring report monthly on the live book.
+
+
 ## Related libraries
 
 | Library | Why it's relevant |
