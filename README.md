@@ -23,30 +23,82 @@ uv add insurance-monitoring
 
 ## Quick example
 
+This example uses named rating factors — which is how actuaries actually work with this data.
+
 ```python
+import polars as pl
 import numpy as np
-from insurance_monitoring import MonitoringReport, psi, ae_ratio, gini_coefficient
+from insurance_monitoring import MonitoringReport
 
 rng = np.random.default_rng(42)
 
-# Reference period (model training window)
-pred_ref = rng.uniform(0.05, 0.20, 50_000)
+# Reference period: training window
+n_ref = 50_000
+pred_ref = rng.uniform(0.05, 0.20, n_ref)
 act_ref = rng.poisson(pred_ref).astype(float)
 
-# Current monitoring period (18 months later)
-pred_cur = rng.uniform(0.05, 0.20, 15_000)
+# Current monitoring period: 18 months into deployment
+n_cur = 15_000
+pred_cur = rng.uniform(0.05, 0.20, n_cur)
 act_cur = rng.poisson(pred_cur * 1.08).astype(float)  # model is 8% optimistic
 
-# Combined monitoring report with traffic lights
+# Feature DataFrames with named rating factors — pass these to get CSI per feature
+feat_ref = pl.DataFrame({
+    "driver_age":  rng.integers(18, 80, n_ref).tolist(),
+    "vehicle_age": rng.integers(0, 15, n_ref).tolist(),
+    "ncd_years":   rng.integers(0, 9, n_ref).tolist(),
+})
+feat_cur = pl.DataFrame({
+    "driver_age":  rng.integers(25, 85, n_cur).tolist(),  # older drivers entering book
+    "vehicle_age": rng.integers(0, 15, n_cur).tolist(),
+    "ncd_years":   rng.integers(0, 9, n_cur).tolist(),
+})
+
 report = MonitoringReport(
     reference_actual=act_ref,
     reference_predicted=pred_ref,
     current_actual=act_cur,
     current_predicted=pred_cur,
-    murphy_distribution="poisson",  # optional Murphy decomposition, now built in
+    feature_df_reference=feat_ref,
+    feature_df_current=feat_cur,
+    features=["driver_age", "vehicle_age", "ncd_years"],
+    murphy_distribution="poisson",
 )
-print(report.recommendation)   # 'NO_ACTION' | 'RECALIBRATE' | 'REFIT' | 'INVESTIGATE'
-print(report.to_polars())      # flat DataFrame with metric / value / band columns
+
+print(report.recommendation)
+# 'RECALIBRATE' | 'REFIT' | 'NO_ACTION' | 'INVESTIGATE' | 'MONITOR_CLOSELY'
+
+df = report.to_polars()
+# metric              | value  | band
+# ae_ratio            | 1.08   | amber
+# gini_current        | 0.39   | amber
+# gini_p_value        | 0.054  | amber
+# csi_driver_age      | 0.14   | amber
+# murphy_discrimination | 0.041 | RECALIBRATE
+# murphy_miscalibration | 0.003 | RECALIBRATE
+# recommendation      | nan    | RECALIBRATE
+```
+
+If you just want to run a quick sanity check without feature data:
+
+```python
+import numpy as np
+from insurance_monitoring import MonitoringReport
+
+rng = np.random.default_rng(42)
+pred_ref = rng.uniform(0.05, 0.20, 50_000)
+act_ref = rng.poisson(pred_ref).astype(float)
+pred_cur = rng.uniform(0.05, 0.20, 15_000)
+act_cur = rng.poisson(pred_cur * 1.08).astype(float)
+
+report = MonitoringReport(
+    reference_actual=act_ref,
+    reference_predicted=pred_ref,
+    current_actual=act_cur,
+    current_predicted=pred_cur,
+    murphy_distribution="poisson",
+)
+print(report.recommendation)
 ```
 
 ## Modules
@@ -172,7 +224,7 @@ report = MonitoringReport(
     feature_df_reference=feat_ref,  # Polars DataFrame
     feature_df_current=feat_cur,
     features=["driver_age", "vehicle_age", "ncd_years"],
-    murphy_distribution="poisson",  # built in since v0.3.0, no extra install needed
+    murphy_distribution="poisson",
 )
 
 print(report.recommendation)
@@ -240,26 +292,6 @@ fig.savefig("model_calibration_sign_off.pdf")
 ## Databricks integration
 
 The demo notebook at `notebooks/demo_monitoring.py` shows the full workflow on synthetic motor data and runs on Databricks serverless. Upload it to your workspace and schedule it as a monthly job against your MLflow inference table.
-
-## What changed in v0.3.0
-
-`insurance-calibration` was a separate package covering the three-property calibration framework (Lindholm & Wüthrich 2025) and Murphy decomposition. As of v0.3.0 it is absorbed into `insurance-monitoring` as the `calibration` sub-package.
-
-All existing imports are unchanged. New imports follow the same pattern:
-
-```python
-# These already worked:
-from insurance_monitoring.calibration import ae_ratio, ae_ratio_ci
-
-# These are new in v0.3.0 (previously required separate install):
-from insurance_monitoring.calibration import (
-    check_balance, check_auto_calibration, murphy_decomposition,
-    rectify_balance, isotonic_recalibrate, CalibrationChecker,
-    BalanceResult, AutoCalibResult, MurphyResult, CalibrationReport,
-    deviance, poisson_deviance, gamma_deviance,
-    plot_auto_calibration, plot_murphy, plot_calibration_report,
-)
-```
 
 ## Background
 
