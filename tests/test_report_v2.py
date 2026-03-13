@@ -63,13 +63,12 @@ class TestMonitoringReportMurphy:
         assert report._fitted is True
 
     def test_murphy_with_calibration_installed(self):
-        """If insurance-calibration is installed, Murphy should be computed."""
-        try:
-            import insurance_calibration  # noqa: F401
-            calibration_available = True
-        except ImportError:
-            calibration_available = False
+        """Murphy decomposition is always available when murphy_distribution is set.
 
+        As of v0.3.0 the Murphy implementation is built in to insurance-monitoring
+        (it was absorbed from the separate insurance-calibration package). We no
+        longer gate on whether insurance-calibration is importable.
+        """
         act_ref, pred_ref, act_cur, pred_cur = _make_data(seed=42)
         report = MonitoringReport(
             reference_actual=act_ref,
@@ -80,20 +79,16 @@ class TestMonitoringReportMurphy:
             murphy_distribution="poisson",
         )
 
-        if calibration_available:
-            assert report.murphy_available is True
-            assert "murphy" in report.results_
-            murphy = report.results_["murphy"]
-            expected_keys = {
-                "uncertainty", "discrimination", "miscalibration",
-                "global_mcb", "local_mcb", "discrimination_pct",
-                "miscalibration_pct", "verdict",
-            }
-            assert expected_keys == set(murphy.keys())
-            assert murphy["verdict"] in {"OK", "RECALIBRATE", "REFIT"}
-        else:
-            assert report.murphy_available is False
-            assert "murphy" not in report.results_
+        assert report.murphy_available is True
+        assert "murphy" in report.results_
+        murphy = report.results_["murphy"]
+        expected_keys = {
+            "uncertainty", "discrimination", "miscalibration",
+            "global_mcb", "local_mcb", "discrimination_pct",
+            "miscalibration_pct", "verdict",
+        }
+        assert expected_keys == set(murphy.keys())
+        assert murphy["verdict"] in {"OK", "RECALIBRATE", "REFIT"}
 
     def test_to_dict_includes_murphy_available_flag(self):
         """to_dict should include murphy_available field."""
