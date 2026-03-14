@@ -327,6 +327,11 @@ Demonstrated on synthetic UK motor data with three deliberately induced failure 
 **When to use:** Any time more than a month has passed since the last model refit. A typical UK motor pricing cycle is 6–12 months between refits; covariate shift and calibration drift accumulate silently in between. Run the monitoring report monthly on the live book.
 
 
+
+## Databricks Notebook
+
+A ready-to-run Databricks notebook benchmarking this library against standard approaches is available in [burning-cost-examples](https://github.com/burning-cost/burning-cost-examples/blob/main/notebooks/monitoring_drift_detection.py).
+
 ## Related libraries
 
 | Library | Why it's relevant |
