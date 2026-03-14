@@ -334,6 +334,29 @@ Demonstrated on synthetic UK motor data with three deliberately induced failure 
 
 ---
 
+## Performance
+
+Benchmarked against a **manual aggregate A/E ratio check** on synthetic UK motor insurance data — 50,000 policies, Poisson GLM trained on 2019–2021, monitored on a deliberately shifted 2023 portfolio: young drivers (under 25) oversampled 2x, high-risk area policies (areas E and F) oversampled 50%, conviction points shifted upward for 20% of policies. Dataset has known DGP so the ground truth for which features have shifted is available.
+
+The central finding: aggregate A/E on the shifted portfolio looks acceptable (near 1.0), because the model's errors partially cancel at portfolio level. `MonitoringReport` raises RED and AMBER PSI flags for the features that have actually shifted.
+
+| Monitoring check | Manual A/E check | MonitoringReport (PSI/CSI) | Notes |
+|------------------|------------------|----------------------------|-------|
+| Aggregate A/E — shifted data | Computed | Same value computed | Both agree on A/E; neither should be used alone |
+| driver_age distributional shift | Not detected | Expected: PSI RED (>0.25) | 2x young driver oversampling doubles the under-25 proportion |
+| area distributional shift | Not detected | Expected: PSI AMBER/RED | High-risk area overweighting detected via PSI |
+| conviction_points shift | Not detected | Expected: PSI AMBER | 20% of policies shifted +1 conviction point |
+| RED PSI flags raised | 0 | Expected: 1–2 features | Depends on shift magnitude at runtime |
+| AMBER PSI flags raised | 0 | Expected: 1–3 features | Configurable thresholds |
+| Gini drift (ref → shifted) | Not computed | Computed with bootstrap CI | Statistically tests whether ranking has degraded |
+| Structured audit trail | No | Yes (traffic-light report) | Required for PRA SS1/23 model risk documentation |
+
+The manual A/E check is blind to who is inside the portfolio. It will report no alarm while the model is systematically mispricing the fastest-growing segment. PSI per feature catches this. The gap between what A/E reports and what is actually happening grows as the portfolio drifts further from the training distribution.
+
+Run `notebooks/benchmark.py` on Databricks to reproduce.
+
+---
+
 ## Licence
 
 MIT
