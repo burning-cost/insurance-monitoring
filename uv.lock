@@ -376,9 +376,9 @@ wheels = [
 ]
 
 [[package]]
-name = "insurance-calibration"
-version = "0.1.0"
-source = { registry = "https://pypi.org/simple" }
+name = "insurance-monitoring"
+version = "0.3.0"
+source = { editable = "." }
 dependencies = [
     { name = "matplotlib" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -387,46 +387,23 @@ dependencies = [
     { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c7/62/cfea164b983fd5c32f51b9bbc76c9519299267f403a24a6da6d48f8ec208/insurance_calibration-0.1.0.tar.gz", hash = "sha256:de465fa887164184d2d48ce333c958f2fdad3c034f32f949941001452a52ff75", size = 35568, upload-time = "2026-03-09T14:11:59.903Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/6c/df/a9fedde9bffc5e63436e154037d7afceabc9835e1b1aacbf50f46e2dee46/insurance_calibration-0.1.0-py3-none-any.whl", hash = "sha256:953d71b2eb38ede68b87352150af0ffdabe5e82c2d4c0079f2e8173741d208f0", size = 30498, upload-time = "2026-03-09T14:11:57.25Z" },
-]
-
-[[package]]
-name = "insurance-monitoring"
-version = "0.2.0"
-source = { editable = "." }
-dependencies = [
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "polars" },
-    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-]
 
 [package.optional-dependencies]
-calibration = [
-    { name = "insurance-calibration" },
-]
 dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
 ]
-full = [
-    { name = "insurance-calibration" },
-]
 
 [package.metadata]
 requires-dist = [
-    { name = "insurance-calibration", marker = "extra == 'calibration'", specifier = ">=0.1.0" },
-    { name = "insurance-calibration", marker = "extra == 'full'", specifier = ">=0.1.0" },
+    { name = "matplotlib", specifier = ">=3.7" },
     { name = "numpy", specifier = ">=1.24" },
-    { name = "polars", specifier = ">=0.20" },
+    { name = "polars", specifier = ">=1.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-cov", marker = "extra == 'dev'" },
-    { name = "scipy", specifier = ">=1.10" },
+    { name = "scipy", specifier = ">=1.12" },
 ]
-provides-extras = ["dev", "calibration", "full"]
+provides-extras = ["dev"]
 
 [[package]]
 name = "kiwisolver"
