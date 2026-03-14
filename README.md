@@ -105,6 +105,8 @@ print(report.recommendation)
 
 [`model_drift_monitoring.py`](https://github.com/burning-cost/burning-cost-examples/blob/main/examples/model_drift_monitoring.py) demonstrates the full monitoring stack on a synthetic motor book with three deliberately induced failure modes: covariate shift (older driver mix), calibration deterioration (segment-level A/E drift), and discriminatory power loss (Gini decay). It covers exposure-weighted PSI and CSI, segment A/E ratios with Poisson confidence intervals, the Gini drift z-test, and structured governance reporting suitable for a PRA SS1/23 model risk log.
 
+A Databricks-importable version is also available: [Databricks notebook](https://github.com/burning-cost/burning-cost-examples/blob/main/notebooks/monitoring_drift_detection.py).
+
 
 ## Modules
 
