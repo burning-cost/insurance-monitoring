@@ -357,6 +357,15 @@ Run `notebooks/benchmark.py` on Databricks to reproduce.
 
 ---
 
+
+## Related Libraries
+
+| Library | What it does |
+|---------|-------------|
+| [insurance-deploy](https://github.com/burning-cost/insurance-deploy) | Champion/challenger deployment — monitoring informs when to switch challenger to champion |
+| [insurance-cv](https://github.com/burning-cost/insurance-cv) | Walk-forward cross-validation — produces the baseline metrics that monitoring tracks prospectively |
+| [insurance-covariate-shift](https://github.com/burning-cost/insurance-covariate-shift) | Covariate shift detection and correction — use when monitoring flags PSI drift requiring model adaptation |
+
 ## Licence
 
 MIT
