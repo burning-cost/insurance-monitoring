@@ -328,7 +328,7 @@ Demonstrated on synthetic UK motor data with three deliberately induced failure 
 | [insurance-interactions](https://github.com/burning-cost/insurance-interactions) | GLM interaction detection — a refit triggered by Gini degradation may need new interactions added |
 | [insurance-causal-policy](https://github.com/burning-cost/insurance-causal-policy) | SDID causal evaluation — if monitoring shows deterioration after a rate change, use this to isolate cause |
 | [insurance-cv](https://github.com/burning-cost/insurance-cv) | Walk-forward cross-validation — use monitoring outputs to decide when to retrain and validate the retrained model |
-| [rate-optimiser](https://github.com/burning-cost/rate-optimiser) | Constrained rate change optimisation — monitoring informs when a rate adjustment is needed; rate-optimiser determines the right one |
+| [insurance-optimise](https://github.com/burning-cost/insurance-optimise) | Constrained rate change optimisation — monitoring informs when a rate adjustment is needed; rate-optimiser determines the right one |
 
 [All Burning Cost libraries →](https://burning-cost.github.io)
 
