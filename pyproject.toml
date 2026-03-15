@@ -35,6 +35,7 @@ dev = ["pytest>=8.0", "pytest-cov"]
 Repository = "https://github.com/burning-cost/insurance-monitoring"
 Issues = "https://github.com/burning-cost/insurance-monitoring/issues"
 Homepage = "https://burning-cost.github.io"
+Documentation = "https://github.com/burning-cost/insurance-monitoring#readme"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/insurance_monitoring"]
