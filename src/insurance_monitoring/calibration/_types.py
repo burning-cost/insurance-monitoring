@@ -244,6 +244,14 @@ class CalibrationReport:
         Combines balance, auto-calibration, and Murphy signals into a single
         action recommendation.
 
+        .. warning::
+            CalibrationReport does **not** test discrimination (Gini) drift.
+            It only tests calibration (A/E, balance, auto-calibration, Murphy MCB).
+            A model can return verdict 'OK' here while its Gini has degraded
+            significantly — meaning the model is well-calibrated on aggregate but
+            has lost the ability to rank risks. Use :class: for
+            full monitoring that includes the Gini drift test.
+
         Returns
         -------
         str

@@ -18,6 +18,7 @@ def murphy_decomposition(
     distribution: str = "poisson",
     tweedie_power: float = 1.5,
     seed: int | None = None,
+    dsc_threshold: float = 0.01,
 ) -> MurphyResult:
     """Decompose the deviance loss into UNC, DSC, MCB (= GMCB + LMCB).
 
@@ -51,9 +52,13 @@ def murphy_decomposition(
 
     The verdict is::
 
-        'OK'          if MCB / UNC < 1% and DSC > 0
+        'OK'          if MCB / UNC < 1% and DSC / UNC > dsc_threshold (default 1%)
         'RECALIBRATE' if GMCB > LMCB (global shift dominates)
         'REFIT'       if LMCB >= GMCB (local structure is wrong)
+
+    Note that the OK condition requires DSC / UNC > dsc_threshold, not merely DSC > 0.
+    A zero-discrimination model that happens to be well-calibrated on aggregate
+    (e.g., a grand-mean model) must not be marked OK — it has no business value.
 
     Parameters
     ----------
@@ -69,6 +74,11 @@ def murphy_decomposition(
         Tweedie variance power (only used when distribution='tweedie').
     seed
         Random seed (unused currently; reserved for bootstrap CI extension).
+    dsc_threshold
+        Minimum DSC/UNC ratio required for a verdict of OK. Default 0.01 (1%).
+        A model must have meaningful discrimination to be called OK — a calibrated
+        grand-mean model (DSC/UNC ~ 0) should not receive the same verdict as a
+        calibrated predictive model. Raise this to 0.05 for stricter monitoring.
 
     Returns
     -------
@@ -139,7 +149,10 @@ def murphy_decomposition(
     mcb_pct = 100.0 * mcb / total_dev if total_dev > 0 else 0.0
 
     # Verdict logic
-    if unc > 0 and mcb / unc < 0.01 and dsc > 0:
+    # OK requires meaningful discrimination: DSC/UNC > dsc_threshold (default 1%).
+    # Using dsc > 0 alone would call a zero-discrimination model OK if MCB is also
+    # low, which is wrong — a model that does not rank risks has no business value.
+    if unc > 0 and mcb / unc < 0.01 and dsc / unc > dsc_threshold:
         verdict = "OK"
     elif gmcb >= lmcb:
         verdict = "RECALIBRATE"

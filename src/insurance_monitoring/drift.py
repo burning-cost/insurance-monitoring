@@ -53,6 +53,7 @@ def psi(
     current: ArrayLike,
     n_bins: int = 10,
     exposure_weights: Optional[ArrayLike] = None,
+    reference_exposure: Optional[ArrayLike] = None,
 ) -> float:
     """Compute the Population Stability Index between two distributions.
 
@@ -87,8 +88,13 @@ def psi(
         This is the correct approach for insurance pricing monitoring — a bin
         containing 1,000 one-month policies should not be treated identically
         to a bin containing 100 annual policies.
-        Note: reference proportions are always count-based unless you pass a
-        separate weighting scheme (combine reference + current arrays for that).
+    reference_exposure:
+        Optional array of exposures for the reference period. When provided,
+        reference bin proportions are also exposure-weighted — the same logic
+        applied symmetrically. If omitted, reference proportions are count-based
+        (the v0.3 default, maintained for backward compatibility). Providing
+        reference_exposure when exposure_weights is also provided gives a fully
+        symmetric PSI: both sides weighted by actual exposure.
 
     Returns
     -------
@@ -122,6 +128,7 @@ def psi(
     ref = _to_numpy(reference)
     cur = _to_numpy(current)
     weights = _to_numpy_optional(exposure_weights)
+    ref_weights = _to_numpy_optional(reference_exposure)
 
     if len(ref) == 0 or len(cur) == 0:
         raise ValueError("reference and current must both be non-empty")
@@ -130,6 +137,10 @@ def psi(
     if weights is not None and len(weights) != len(cur):
         raise ValueError(
             f"exposure_weights length ({len(weights)}) must match current length ({len(cur)})"
+        )
+    if ref_weights is not None and len(ref_weights) != len(ref):
+        raise ValueError(
+            f"reference_exposure length ({len(ref_weights)}) must match reference length ({len(ref)})"
         )
 
     # Bin edges from equal-frequency quantiles of the reference distribution
@@ -145,11 +156,22 @@ def psi(
     bin_edges[0] = -np.inf
     bin_edges[-1] = np.inf
 
-    # Reference proportions: simple counts
-    ref_counts, _ = np.histogram(ref, bins=bin_edges)
-    ref_props = ref_counts / ref_counts.sum()
+    # Reference proportions: exposure-weighted if reference_exposure provided, else counts
+    if ref_weights is not None:
+        ref_props = np.zeros(len(bin_edges) - 1)
+        ref_bin_indices = np.digitize(ref, bin_edges[1:-1])
+        for idx in range(len(ref_props)):
+            mask = ref_bin_indices == idx
+            ref_props[idx] = ref_weights[mask].sum()
+        total_ref_weight = ref_props.sum()
+        if total_ref_weight == 0:
+            raise ValueError("Sum of reference_exposure is zero")
+        ref_props = ref_props / total_ref_weight
+    else:
+        ref_counts, _ = np.histogram(ref, bins=bin_edges)
+        ref_props = ref_counts / ref_counts.sum()
 
-    # Current proportions: exposure-weighted if weights provided
+    # Current proportions: exposure-weighted if weights provided, else counts
     if weights is not None:
         cur_props = np.zeros(len(bin_edges) - 1)
         bin_indices = np.digitize(cur, bin_edges[1:-1])  # which bin each obs falls in

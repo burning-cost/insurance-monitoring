@@ -89,17 +89,29 @@ def _gini_from_arrays(
     # Practical implementation: sort by predicted, then handle ties by
     # assigning the midpoint rank. This is equivalent to the arXiv 2510.04556
     # Pitfall A correction.
-    order = np.argsort(predicted, kind="stable")
-    actual_sorted = actual[order]
-    pred_sorted = predicted[order]
-    exp_sorted = exp[order]
+    # Group by unique predicted value to handle ties correctly.
+    # Using argsort with kind="stable" makes the Gini order-dependent when many
+    # policies share the same predicted rate (e.g., NCD band GLMs). The fix is
+    # to accumulate cumulative exposure and claims at the level of unique predicted
+    # values — all policies with the same predicted rate contribute together,
+    # eliminating the dependence on row order. This implements the midpoint
+    # tie-breaking described in arXiv 2510.04556 Pitfall A.
+    total_exp = float(np.sum(exp))
+    total_claims = float(np.sum(actual))
 
-    # Cumulative exposure and claims after sorting by predicted rate (ascending)
-    cum_exp = np.cumsum(exp_sorted)
-    cum_claims = np.cumsum(actual_sorted)
-
-    total_exp = float(np.sum(exp_sorted))
-    total_claims = float(np.sum(actual_sorted))
+    unique_preds = np.unique(predicted)  # already sorted ascending
+    cum_exp_vals = []
+    cum_claims_vals = []
+    running_exp = 0.0
+    running_claims = 0.0
+    for p in unique_preds:
+        mask = predicted == p
+        running_exp += float(exp[mask].sum())
+        running_claims += float(actual[mask].sum())
+        cum_exp_vals.append(running_exp)
+        cum_claims_vals.append(running_claims)
+    cum_exp = np.array(cum_exp_vals)
+    cum_claims = np.array(cum_claims_vals)
 
     if total_claims == 0 or total_exp == 0:
         return 0.0
@@ -161,8 +173,11 @@ def gini_coefficient(
 
     Gini = 0: model has no discriminatory power (equivalent to random sorting)
     Gini = 1: model perfectly separates risks (higher predicted = always higher actual)
+    Gini < 0: model discriminates inversely (higher predicted = lower actual — indicates
+              a reversed or fundamentally misspecified model)
 
-    Typical values for UK motor frequency models: 0.35–0.55.
+    The theoretical range is [-1, 1]. In practice, sensible insurance models produce
+    values in [0, 1]. Typical values for UK motor frequency models: 0.35–0.55.
     A Gini below 0.30 is weak. Above 0.60 is excellent.
 
     Parameters
@@ -179,7 +194,9 @@ def gini_coefficient(
     Returns
     -------
     float
-        Gini coefficient in [0, 1].
+        Gini coefficient in [-1, 1]. Negative values indicate inverted discrimination
+        (higher predicted rate associated with fewer actual claims). Values in [0, 1]
+        are normal for correctly specified models.
 
     Examples
     --------
@@ -564,15 +581,23 @@ def lorenz_curve(
     if exp is None:
         exp = np.ones(len(act))
 
-    order = np.argsort(pred, kind="stable")
-    act_sorted = act[order]
-    exp_sorted = exp[order]
+    # Group by unique predicted value to handle ties consistently with gini_coefficient.
+    total_exp = float(np.sum(exp))
+    total_claims = float(np.sum(act))
 
-    cum_exp = np.cumsum(exp_sorted)
-    cum_claims = np.cumsum(act_sorted)
-
-    total_exp = float(np.sum(exp_sorted))
-    total_claims = float(np.sum(act_sorted))
+    unique_preds = np.unique(pred)  # sorted ascending
+    cum_exp_vals = []
+    cum_claims_vals = []
+    running_exp = 0.0
+    running_claims = 0.0
+    for p in unique_preds:
+        mask = pred == p
+        running_exp += float(exp[mask].sum())
+        running_claims += float(act[mask].sum())
+        cum_exp_vals.append(running_exp)
+        cum_claims_vals.append(running_claims)
+    cum_exp = np.array(cum_exp_vals)
+    cum_claims = np.array(cum_claims_vals)
 
     x = np.concatenate([[0.0], cum_exp / total_exp])
     y = np.concatenate([[0.0], cum_claims / total_claims if total_claims > 0 else cum_claims])

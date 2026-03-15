@@ -248,9 +248,12 @@ def ae_ratio_ci(
         lower = lower_count / n_expected
         upper = upper_count / n_expected
     elif method == "normal":
-        # Normal approximation: SE(A/E) = sqrt(A/E^2 / n)
-        n = len(act)
-        se = ae / math.sqrt(n) if n > 0 else float("inf")
+        # Normal approximation: SE(A/E) = ae / sqrt(n_expected)
+        # Under Poisson, Var(sum(Y)) = sum(mu), so Var(A/E) = sum(mu) / sum(mu)^2 = 1/n_expected.
+        # SE(A/E) = ae / sqrt(n_expected) — NOT ae / sqrt(n_policies).
+        # Using n_policies (number of rows) makes the CI ~4.5x too narrow
+        # when average expected claims per policy is ~0.05.
+        se = ae / math.sqrt(n_expected) if n_expected > 0 else float("inf")
         z = stats.norm.ppf(1 - alpha / 2)
         lower = ae - z * se
         upper = ae + z * se
