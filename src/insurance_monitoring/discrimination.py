@@ -233,8 +233,8 @@ def gini_coefficient(
 def gini_drift_test(
     reference_gini: float,
     current_gini: float,
-    n_reference: int,
-    n_current: int,
+    n_reference: Optional[int] = None,
+    n_current: Optional[int] = None,
     reference_variance: Optional[float] = None,
     current_variance: Optional[float] = None,
     reference_actual: Optional[ArrayLike] = None,
@@ -271,9 +271,12 @@ def gini_drift_test(
     current_gini:
         Gini coefficient from the current monitoring period.
     n_reference:
-        Number of observations in reference period (used for variance scaling).
+        Number of observations in reference period. Accepted for informational
+        purposes but not used in variance computation — the bootstrap SE is
+        computed directly from the raw arrays and already reflects sample size.
+        May be omitted; retained for backwards compatibility.
     n_current:
-        Number of observations in current period.
+        Number of observations in current period. Same note as n_reference.
     reference_variance:
         Variance of reference Gini estimator. Required if raw arrays not provided.
     current_variance:

@@ -2,7 +2,7 @@
 Model calibration monitoring for insurance pricing models.
 
 Calibration is the most directly business-relevant performance dimension for
-insurance pricing: a model that is systematically 5% optimistic will
+insurance pricing: a model that is systematically underpredicting by 5% will
 underprice by 5%, which shows up directly in loss ratio.
 
 The Actual/Expected (A/E) ratio is the universal actuarial calibration metric.
@@ -102,7 +102,7 @@ def ae_ratio(
         predicted = np.array([0.08, 0.05, 0.12, 0.04, 0.09, 0.07])  # freq
         exposure = np.array([1.0, 0.5, 1.0, 1.0, 0.8, 0.9])
         ae = ae_ratio(actual, predicted, exposure=exposure)
-        # ae ≈ 1.05 means model slightly optimistic
+        # ae ≈ 1.05 means model slightly underpredicted (actuals exceeded predictions)
 
     Segmented A/E by driver age band::
 

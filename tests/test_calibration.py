@@ -27,15 +27,15 @@ class TestAERatio:
         result = ae_ratio(actual, predicted)
         assert result == pytest.approx(1.0)
 
-    def test_optimistic_model(self):
-        """When predictions are too high (optimistic), A/E < 1.0."""
+    def test_overpredicted_model(self):
+        """When model overpredicts (predictions too high), A/E < 1.0."""
         actual = np.array([100.0])
         predicted = np.array([110.0])  # 10% over-predicted
         result = ae_ratio(actual, predicted)
         assert result == pytest.approx(100.0 / 110.0)
 
-    def test_pessimistic_model(self):
-        """When predictions are too low (pessimistic), A/E > 1.0."""
+    def test_underpredicted_model(self):
+        """When model underpredicts (predictions too low), A/E > 1.0."""
         actual = np.array([110.0])
         predicted = np.array([100.0])
         result = ae_ratio(actual, predicted)

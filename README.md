@@ -15,6 +15,8 @@ The central problem with aggregate A/E is that errors cancel at portfolio level.
 
 Benchmarked on synthetic UK motor data — 50,000 training policies (2019–2021), monitored against a 2023 portfolio with known induced shifts: young drivers (under 25) oversampled 2x, high-risk areas (E and F) oversampled 50%, conviction points shifted upward for 20% of policies.
 
+> **Note on benchmark sizes**: the table below uses the 50,000/15,000 policy scenario. The detailed Performance section further down uses a smaller scenario (10,000 reference / 4,000 monitoring) for a faster local run. Both use the same DGP; the smaller run is provided for reproducibility without Databricks.
+
 | Monitoring check | Manual A/E check | MonitoringReport (PSI/CSI) | Notes |
 |------------------|------------------|----------------------------|-------|
 | Aggregate A/E — shifted data | Computed | Same value | Both agree; neither alone is sufficient |
@@ -68,7 +70,7 @@ act_ref = rng.poisson(pred_ref).astype(float)
 # Current monitoring period: 18 months into deployment
 n_cur = 15_000
 pred_cur = rng.uniform(0.05, 0.20, n_cur)
-act_cur = rng.poisson(pred_cur * 1.08).astype(float)  # model is 8% optimistic
+act_cur = rng.poisson(pred_cur * 1.08).astype(float)  # model underpredicted: actuals 8% above predictions (A/E ≈ 1.08)
 
 # Feature DataFrames with named rating factors — pass these to get CSI per feature
 feat_ref = pl.DataFrame({
