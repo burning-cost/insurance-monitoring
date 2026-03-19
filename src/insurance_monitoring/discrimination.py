@@ -43,6 +43,7 @@ References
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Optional, Union
 
 import numpy as np
@@ -55,6 +56,93 @@ if not hasattr(np, "trapezoid"):
 
 
 ArrayLike = Union[np.ndarray, pl.Series]
+
+
+@dataclass
+class GiniDriftResult:
+    """Result of a two-sample Gini drift test (gini_drift_test).
+
+    Attributes
+    ----------
+    z_statistic:
+        z-score. Negative means the current Gini is lower than reference
+        (discrimination has degraded).
+    p_value:
+        Two-sided p-value.
+    reference_gini:
+        Gini coefficient from the reference period.
+    current_gini:
+        Gini coefficient from the current period.
+    gini_change:
+        current_gini - reference_gini. Negative means degradation.
+    significant:
+        True if p_value < alpha (the significance level passed to the test).
+    """
+
+    z_statistic: float
+    p_value: float
+    reference_gini: float
+    current_gini: float
+    gini_change: float
+    significant: bool
+
+    def __getitem__(self, key: str):
+        """Dict-style access for backward compatibility."""
+        return getattr(self, key)
+
+    def __contains__(self, key: str) -> bool:
+        """Support 'key in result' for backward compatibility."""
+        return hasattr(self, key)
+
+    def keys(self):
+        """Return field names, like dict.keys(), for backward compatibility."""
+        from dataclasses import fields as dc_fields
+        return [f.name for f in dc_fields(self)]
+
+
+@dataclass
+class GiniDriftOneSampleResult:
+    """Result of a one-sample Gini drift test (gini_drift_test_onesample).
+
+    Attributes
+    ----------
+    z_statistic:
+        z-score. Negative means monitor Gini is below training Gini.
+    p_value:
+        Two-sided p-value.
+    training_gini:
+        Stored training Gini (the fixed reference).
+    monitor_gini:
+        Point estimate from the current monitoring data.
+    gini_change:
+        monitor_gini - training_gini.
+    se_bootstrap:
+        Bootstrap standard error of the monitor Gini estimator.
+    significant:
+        True if p_value < alpha.
+    """
+
+    z_statistic: float
+    p_value: float
+    training_gini: float
+    monitor_gini: float
+    gini_change: float
+    se_bootstrap: float
+    significant: bool
+
+    def __getitem__(self, key: str):
+        """Dict-style access for backward compatibility."""
+        return getattr(self, key)
+
+    def __contains__(self, key: str) -> bool:
+        """Support 'key in result' for backward compatibility."""
+        return hasattr(self, key)
+
+    def keys(self):
+        """Return field names, like dict.keys(), for backward compatibility."""
+        from dataclasses import fields as dc_fields
+        return [f.name for f in dc_fields(self)]
+
 
 
 def _to_numpy(x: ArrayLike) -> np.ndarray:
@@ -245,7 +333,7 @@ def gini_drift_test(
     current_exposure: Optional[ArrayLike] = None,
     n_bootstrap: int = 200,
     alpha: float = 0.32,
-) -> dict[str, float]:
+) -> GiniDriftResult:
     """Statistical test for Gini coefficient drift between two periods.
 
     Implements the two-sample asymptotic z-test from Theorem 1 of
@@ -297,13 +385,10 @@ def gini_drift_test(
 
     Returns
     -------
-    dict with keys:
-        - ``z_statistic``: z-score (negative = current Gini degraded)
-        - ``p_value``: two-sided p-value
-        - ``reference_gini``: as supplied
-        - ``current_gini``: as supplied
-        - ``gini_change``: current_gini - reference_gini
-        - ``significant``: bool, True if p < alpha
+    GiniDriftResult
+        Typed dataclass with fields: z_statistic, p_value, reference_gini,
+        current_gini, gini_change, significant. Supports dict-style access
+        (result["z_statistic"]) for backward compatibility.
 
     Examples
     --------
@@ -364,27 +449,27 @@ def gini_drift_test(
 
     se = float(np.sqrt(var_ref + var_cur))
     if se == 0:
-        return {
-            "z_statistic": float("nan"),
-            "p_value": float("nan"),
-            "reference_gini": reference_gini,
-            "current_gini": current_gini,
-            "gini_change": current_gini - reference_gini,
-            "significant": False,
-        }
+        return GiniDriftResult(
+            z_statistic=float("nan"),
+            p_value=float("nan"),
+            reference_gini=float(reference_gini),
+            current_gini=float(current_gini),
+            gini_change=float(current_gini - reference_gini),
+            significant=False,
+        )
 
     gini_change = current_gini - reference_gini
     z = gini_change / se
     p_value = float(2.0 * (1.0 - stats.norm.cdf(abs(z))))
 
-    return {
-        "z_statistic": float(z),
-        "p_value": p_value,
-        "reference_gini": float(reference_gini),
-        "current_gini": float(current_gini),
-        "gini_change": float(gini_change),
-        "significant": bool(p_value < alpha),
-    }
+    return GiniDriftResult(
+        z_statistic=float(z),
+        p_value=float(p_value),
+        reference_gini=float(reference_gini),
+        current_gini=float(current_gini),
+        gini_change=float(gini_change),
+        significant=bool(p_value < alpha),
+    )
 
 
 def gini_drift_test_onesample(
@@ -394,7 +479,7 @@ def gini_drift_test_onesample(
     monitor_exposure: Optional[ArrayLike] = None,
     n_bootstrap: int = 500,
     alpha: float = 0.32,
-) -> dict[str, float]:
+) -> GiniDriftOneSampleResult:
     """One-sample bootstrap Gini drift test (Algorithm 3, arXiv 2510.04556).
 
     Tests H0: Gini(monitor) = training_gini against H1: Gini(monitor) < training_gini.
@@ -442,14 +527,10 @@ def gini_drift_test_onesample(
 
     Returns
     -------
-    dict with keys:
-        - ``z_statistic``: z-score (negative = monitor Gini below training Gini)
-        - ``p_value``: two-sided p-value
-        - ``training_gini``: as supplied
-        - ``monitor_gini``: point estimate from monitor data
-        - ``gini_change``: monitor_gini - training_gini
-        - ``se_bootstrap``: bootstrap standard error of the monitor Gini estimator
-        - ``significant``: bool, True if p < alpha
+    GiniDriftOneSampleResult
+        Typed dataclass with fields: z_statistic, p_value, training_gini,
+        monitor_gini, gini_change, se_bootstrap, significant. Supports
+        dict-style access (result["z_statistic"]) for backward compatibility.
 
     Examples
     --------
@@ -503,29 +584,29 @@ def gini_drift_test_onesample(
     se_boot = float(np.std(boot_samples, ddof=1))
 
     if se_boot == 0.0:
-        return {
-            "z_statistic": float("nan"),
-            "p_value": float("nan"),
-            "training_gini": float(training_gini),
-            "monitor_gini": float(monitor_gini),
-            "gini_change": float(monitor_gini - training_gini),
-            "se_bootstrap": 0.0,
-            "significant": False,
-        }
+        return GiniDriftOneSampleResult(
+            z_statistic=float("nan"),
+            p_value=float("nan"),
+            training_gini=float(training_gini),
+            monitor_gini=float(monitor_gini),
+            gini_change=float(monitor_gini - training_gini),
+            se_bootstrap=0.0,
+            significant=False,
+        )
 
     gini_change = monitor_gini - training_gini
     z = gini_change / se_boot
     p_value = float(2.0 * (1.0 - stats.norm.cdf(abs(z))))
 
-    return {
-        "z_statistic": float(z),
-        "p_value": p_value,
-        "training_gini": float(training_gini),
-        "monitor_gini": float(monitor_gini),
-        "gini_change": float(gini_change),
-        "se_bootstrap": float(se_boot),
-        "significant": bool(p_value < alpha),
-    }
+    return GiniDriftOneSampleResult(
+        z_statistic=float(z),
+        p_value=float(p_value),
+        training_gini=float(training_gini),
+        monitor_gini=float(monitor_gini),
+        gini_change=float(gini_change),
+        se_bootstrap=float(se_boot),
+        significant=bool(p_value < alpha),
+    )
 
 
 def lorenz_curve(
