@@ -24,6 +24,15 @@ Quick start
     from insurance_monitoring.calibration import ae_ratio, check_balance, CalibrationChecker
     from insurance_monitoring.discrimination import gini_coefficient
 
+v0.3.3 changes
+--------------
+- ``GiniDriftResult`` and ``GiniDriftOneSampleResult`` typed dataclasses added to
+  ``insurance_monitoring.discrimination``. The drift test functions now return these
+  typed objects instead of plain dicts — attribute access (``result.significant``,
+  ``result.gini_change``) works. Dict-style access (``result["significant"]``) is
+  also supported for backward compatibility via ``__getitem__``. Both types exported
+  from the top-level package.
+
 v0.3.0 changes
 --------------
 - insurance-calibration absorbed as ``insurance_monitoring.calibration`` sub-package.
@@ -72,9 +81,9 @@ from insurance_monitoring.discrimination import (
     gini_coefficient,
     gini_drift_test,
     gini_drift_test_onesample,
-    lorenz_curve,
     GiniDriftResult,
     GiniDriftOneSampleResult,
+    lorenz_curve,
 )
 from insurance_monitoring.drift import (
     csi,
@@ -90,7 +99,7 @@ from insurance_monitoring.thresholds import (
     PSIThresholds,
 )
 
-__version__ = "0.3.2"
+__version__ = "0.3.3"
 
 __all__ = [
     # drift
@@ -119,9 +128,9 @@ __all__ = [
     "gini_coefficient",
     "gini_drift_test",
     "gini_drift_test_onesample",
-    "lorenz_curve",
     "GiniDriftResult",
     "GiniDriftOneSampleResult",
+    "lorenz_curve",
     # report
     "MonitoringReport",
     # thresholds
