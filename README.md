@@ -26,9 +26,11 @@ Benchmarked on synthetic UK motor data — 50,000 training policies (2019–2021
 | area distributional shift | Not detected | PSI AMBER/RED | High-risk area overweighting |
 | conviction_points shift | Not detected | PSI AMBER | 20% of policies shifted +1 point |
 | Gini drift (ref vs shifted) | Not computed | Computed with bootstrap CI | Tests whether ranking has degraded |
-| Structured audit trail | No | Yes (traffic-light report) | Required for PRA SS1/23 model risk log |
+| Structured audit trail | No | Yes (traffic-light report) | Suitable for inclusion in PRA SS1/23 model risk documentation (see note below) |
 
 The manual A/E check is blind to who is inside the portfolio. PSI per feature catches segment-level drift that cancels at portfolio level. The Gini drift z-test tells you whether the model's ranking has degraded — the difference between a cheap recalibration and a full refit.
+
+> **Note on regulatory scope:** PRA SS1/23 applies to banks and building societies. For insurers, the relevant standards are the PRA's internal model requirements under Solvency II and FCA Consumer Duty model governance obligations. The structured audit trail this library produces is appropriate for inclusion in model risk documentation under any of these frameworks.
 
 ▶ [Run on Databricks](https://github.com/burning-cost/burning-cost-examples/blob/main/notebooks/monitoring_drift_detection.py)
 
@@ -135,7 +137,7 @@ print(report.recommendation)
 
 ## Worked Example
 
-[`model_drift_monitoring.py`](https://github.com/burning-cost/burning-cost-examples/blob/main/examples/model_drift_monitoring.py) demonstrates the full monitoring stack on a synthetic motor book with three deliberately induced failure modes: covariate shift (older driver mix), calibration deterioration (segment-level A/E drift), and discriminatory power loss (Gini decay). It covers exposure-weighted PSI and CSI, segment A/E ratios with Poisson confidence intervals, the Gini drift z-test, and structured governance reporting suitable for a PRA SS1/23 model risk log.
+[`model_drift_monitoring.py`](https://github.com/burning-cost/burning-cost-examples/blob/main/examples/model_drift_monitoring.py) demonstrates the full monitoring stack on a synthetic motor book with three deliberately induced failure modes: covariate shift (older driver mix), calibration deterioration (segment-level A/E drift), and discriminatory power loss (Gini decay). It covers exposure-weighted PSI and CSI, segment A/E ratios with Poisson confidence intervals, the Gini drift z-test, and structured governance reporting suitable for inclusion in PRA SS1/23 model risk documentation.
 
 A Databricks-importable version is also available: [Databricks notebook](https://github.com/burning-cost/burning-cost-examples/blob/main/notebooks/monitoring_drift_detection.py).
 
@@ -347,7 +349,7 @@ The calibration suite implements:
 
 Demonstrated on synthetic UK motor data with three deliberately induced failure modes: covariate shift (older drivers enter the book), calibration deterioration (claim frequency inflated for a segment), and stale discrimination (model trained on old data, portfolio composition changed). Full notebook: `notebooks/benchmark.py`.
 
-- PSI/CSI flags the covariate shift — feature distributions in the monitoring period diverge from training, triggering configurable traffic lights (PSI > 0.2 = red)
+- PSI/CSI flags the covariate shift — feature distributions in the monitoring period diverge from training, triggering configurable traffic lights (PSI > 0.25 = red)
 - A/E ratio with confidence intervals catches calibration drift — segment-level actual-to-expected ratios with statistical significance tests, not just point estimates
 - Gini drift z-test (arXiv 2510.04556) detects discrimination loss — the discriminatory power of the model has declined, which a standard A/E dashboard would miss
 - `MonitoringReport` assembles all three checks into a single traffic-light summary with a recommended action: monitor, investigate, or refit
