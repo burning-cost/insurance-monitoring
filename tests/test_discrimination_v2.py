@@ -8,6 +8,7 @@ from insurance_monitoring.discrimination import (
     gini_coefficient,
     gini_drift_test,
     gini_drift_test_onesample,
+    GiniDriftOneSampleResult,
 )
 
 
@@ -164,7 +165,7 @@ class TestGiniDriftTestOnesample:
             monitor_predicted=pred,
             n_bootstrap=30,
         )
-        assert isinstance(result, dict)
+        assert isinstance(result, GiniDriftOneSampleResult)
         assert "monitor_gini" in result
 
     def test_exposure_accepted(self):
@@ -182,7 +183,7 @@ class TestGiniDriftTestOnesample:
             monitor_exposure=exp,
             n_bootstrap=50,
         )
-        assert isinstance(result, dict)
+        assert isinstance(result, GiniDriftOneSampleResult)
         assert result["se_bootstrap"] > 0
 
     def test_empty_monitor_raises(self):

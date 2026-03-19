@@ -73,6 +73,8 @@ from insurance_monitoring.discrimination import (
     gini_drift_test,
     gini_drift_test_onesample,
     lorenz_curve,
+    GiniDriftResult,
+    GiniDriftOneSampleResult,
 )
 from insurance_monitoring.drift import (
     csi,
@@ -118,6 +120,8 @@ __all__ = [
     "gini_drift_test",
     "gini_drift_test_onesample",
     "lorenz_curve",
+    "GiniDriftResult",
+    "GiniDriftOneSampleResult",
     # report
     "MonitoringReport",
     # thresholds
