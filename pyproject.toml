@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "insurance-monitoring"
-version = "0.4.0"
-description = "Model drift detection, monitoring, and calibration for insurance pricing models. PSI, CSI, Gini drift, A/E ratios, balance property testing, Murphy decomposition, TRIPODD drift attribution."
+version = "0.5.0"
+description = "Model drift detection, monitoring, calibration, and sequential A/B testing for insurance pricing models. PSI, CSI, Gini drift, A/E ratios, balance property testing, Murphy decomposition, TRIPODD drift attribution, mSPRT champion/challenger."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 authors = [{ name = "Burning Cost", email = "pricing.frontier@gmail.com" }]
-keywords = ["insurance", "monitoring", "drift", "PSI", "Gini", "calibration", "murphy", "pricing", "actuarial", "TRIPODD"]
+keywords = ["insurance", "monitoring", "drift", "PSI", "Gini", "calibration", "murphy", "pricing", "actuarial", "TRIPODD", "sequential", "a/b testing", "champion challenger", "mSPRT"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Financial and Insurance Industry",

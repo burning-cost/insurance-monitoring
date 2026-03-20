@@ -15,6 +15,9 @@ discrimination
     Gini coefficient, Gini drift tests (arXiv 2510.04556), Lorenz curves.
 report
     MonitoringReport — combined check with traffic-light output.
+sequential
+    Anytime-valid A/B testing for champion/challenger experiments using mSPRT
+    (Johari et al. 2022). Valid type I error control at every interim check.
 thresholds
     Configurable threshold defaults (PSI, A/E, Gini).
 
@@ -27,6 +30,15 @@ Quick start
     from insurance_monitoring.drift_attribution import DriftAttributor
     from insurance_monitoring.calibration import ae_ratio, check_balance, CalibrationChecker
     from insurance_monitoring.discrimination import gini_coefficient
+    from insurance_monitoring.sequential import SequentialTest
+
+v0.5.0 changes
+--------------
+- ``SequentialTest`` and ``SequentialTestResult`` added for anytime-valid A/B testing.
+  Uses mixture SPRT (Johari et al. 2022). Supports frequency, severity, and loss ratio
+  metrics. No pre-specified sample size or look schedule required.
+- ``sequential_test_from_df()`` convenience function for DataFrame-based workflows.
+- All three exports available from the top-level package.
 
 v0.4.0 changes
 --------------
@@ -109,6 +121,11 @@ from insurance_monitoring.drift_attribution import (
     DriftAttributionResult,
 )
 from insurance_monitoring.report import MonitoringReport
+from insurance_monitoring.sequential import (
+    SequentialTest,
+    SequentialTestResult,
+    sequential_test_from_df,
+)
 from insurance_monitoring.thresholds import (
     AERatioThresholds,
     GiniDriftThresholds,
@@ -116,7 +133,7 @@ from insurance_monitoring.thresholds import (
     PSIThresholds,
 )
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 __all__ = [
     # drift
@@ -153,6 +170,10 @@ __all__ = [
     "lorenz_curve",
     # report
     "MonitoringReport",
+    # sequential A/B testing
+    "SequentialTest",
+    "SequentialTestResult",
+    "sequential_test_from_df",
     # thresholds
     "MonitoringThresholds",
     "PSIThresholds",
