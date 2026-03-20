@@ -251,6 +251,86 @@ result = gini_drift_test(
 
 The Gini drift test is the distinguishing feature of this library. Most monitoring tools tell you whether A/E has moved. This tells you whether the model's *ranking* has degraded — the difference between a cheap recalibration and a full refit.
 
+### `sequential` — Anytime-valid champion/challenger testing (v0.5.0)
+
+Standard A/B tests have a dirty secret: if you peek at results before the pre-specified end date and stop early when the data looks good, your actual false positive rate is far higher than your nominal 5%. On a monthly checking cadence, a fixed-horizon t-test can inflate to 25% FPR — five times nominal.
+
+The `sequential` module implements the mixture Sequential Probability Ratio Test (mSPRT) from Johari et al. (2022). The test statistic is an e-process, which satisfies P(exists n: Lambda_n >= 1/alpha) <= alpha at **all** stopping times. You can check it every month for two years without inflating type I error. When it crosses the threshold, stop — the evidence is genuine.
+
+Supports three metrics: claim frequency (Poisson rate ratio), claim severity (log-normal ratio), and combined loss ratio (product of the two e-values).
+
+```python
+import datetime
+from insurance_monitoring.sequential import SequentialTest
+
+# Champion: existing model. Challenger: new model being tested.
+# Feed monthly increments as they arrive — no need to wait for a fixed end date.
+
+test = SequentialTest(
+    metric="frequency",      # 'frequency' | 'severity' | 'loss_ratio'
+    alternative="two_sided", # 'two_sided' | 'greater' | 'less'
+    alpha=0.05,
+    tau=0.03,                # prior std dev on log-rate-ratio: expect ~3% effects
+    max_duration_years=2.0,
+    min_exposure_per_arm=100.0,  # car-years before any stopping decision
+)
+
+# Month 1 — Q1 2025
+result = test.update(
+    champion_claims=42,   challenger_claims=38,
+    champion_exposure=500, challenger_exposure=495,
+    calendar_date=datetime.date(2025, 3, 31),
+)
+print(result.summary)
+# "Challenger freq 8.8% lower (95% CS: 0.731–1.193). Evidence: 0.4 (threshold 20.0). Inconclusive."
+
+# Month 4 — Q2 2025 (check as often as you like; FPR stays at 5%)
+result = test.update(
+    champion_claims=44,   challenger_claims=29,
+    champion_exposure=510, challenger_exposure=505,
+    calendar_date=datetime.date(2025, 6, 30),
+)
+print(result.decision)     # 'inconclusive' | 'reject_H0' | 'futility' | 'max_duration_reached'
+print(result.should_stop)  # True when decision != 'inconclusive'
+
+# Full history as Polars DataFrame
+df = test.history()
+# period_index | calendar_date | lambda_value | log_lambda_value | champion_rate | ...
+```
+
+For batch processing from a DataFrame of monthly reporting periods:
+
+```python
+import polars as pl
+from insurance_monitoring.sequential import sequential_test_from_df
+
+monthly_data = pl.DataFrame({
+    "date":               ["2025-01-31", "2025-02-28", "2025-03-31", "2025-04-30"],
+    "champ_claims":       [42, 38, 44, 41],
+    "champ_exposure":     [500, 490, 510, 495],
+    "chall_claims":       [38, 31, 29, 28],
+    "chall_exposure":     [495, 488, 505, 492],
+})
+
+result = sequential_test_from_df(
+    df=monthly_data,
+    champion_claims_col="champ_claims",
+    champion_exposure_col="champ_exposure",
+    challenger_claims_col="chall_claims",
+    challenger_exposure_col="chall_exposure",
+    date_col="date",
+    metric="frequency",
+    alpha=0.05,
+)
+print(result.summary)
+```
+
+**When to use:** Any champion/challenger experiment where results are checked before the pre-specified end date — which is almost every experiment in practice. Renewal cycles, rate change pilots, telematics scoring experiments.
+
+**When NOT to use:** When you have a hard commitment to a fixed sample size and will genuinely not look before it completes. In that case, a standard two-sample test is more powerful than mSPRT.
+
+**On the prior tau:** `tau=0.03` encodes a prior that meaningful effects are around 3% on the log-rate-ratio scale. For telematics experiments where you expect larger effects (10%+), increase to `tau=0.10`. For fine-tuning experiments where the effect is expected to be very small, decrease to `tau=0.01`.
+
 ### `report` — Combined monitoring in one call
 
 ```python
@@ -344,6 +424,10 @@ The calibration suite implements:
 > Lindholm & Wüthrich: "Three calibration properties for insurance pricing models" (SAJ 2025)
 > Brauer et al.: arXiv:2510.04556 Section 4 — Murphy decomposition and the MCB bootstrap test
 
+The sequential testing module implements:
+> Johari et al. (2022). "Always Valid Inference: Continuous Monitoring of A/B Tests." Operations Research 70(3). arXiv:1512.04922.
+> Howard et al. (2021). "Time-uniform, nonparametric, nonasymptotic confidence sequences." Annals of Statistics 49(2).
+
 ---
 
 ## Capabilities Demo
@@ -380,6 +464,8 @@ A ready-to-run Databricks notebook benchmarking this library against standard ap
 
 ## Performance
 
+### MonitoringReport vs manual A/E
+
 Benchmarked against a **manual aggregate A/E ratio check** on synthetic UK motor insurance data — 10,000 reference policies and 4,000 monitoring-period policies with three deliberately induced failure modes. Full script: `benchmarks/run_benchmark.py`.
 
 | Check | Manual A/E | MonitoringReport |
@@ -404,6 +490,19 @@ The aggregate A/E at 0.9420 falls just outside the 0.95–1.05 green band (verdi
 The Gini drift test returns p=0.76 at n=4,000, which is correct — 4,000 policies does not give enough statistical power to detect a Gini drop of −0.012. At 15,000 policies the same DGP produces z≈−1.9, p≈0.06. The test is appropriately conservative at small sample sizes.
 
 **When to use:** Any time more than a month has passed since the last model refit. The monitoring report runs in under 40 seconds on 14,000 policies (including bootstrap variance estimation for the Gini test).
+
+### SequentialTest (mSPRT) vs fixed-horizon t-test
+
+Benchmarked on simulated UK motor champion/challenger data. 10,000 Monte Carlo simulations under H0 (no true effect): analyst checks results monthly for 24 months and stops if the test is significant. Full script: `benchmarks/benchmark_sequential.py`.
+
+| Method | Nominal FPR | Actual FPR (monthly peeking) | Notes |
+|--------|-------------|------------------------------|-------|
+| Fixed-horizon t-test | 5% | ~25% | 5x inflation from repeated peeking |
+| mSPRT (SequentialTest) | 5% | ~1% | Valid at all stopping times |
+
+Under H1 (challenger 10% cheaper on frequency), mSPRT detects the effect in a median of 8 months on a 500-policy-per-arm-per-month book; a pre-registered t-test at 24 months would reach the same conclusion but forces the team to wait.
+
+The 25% FPR figure for the fixed-horizon t-test assumes monthly checks from month 1 with early stopping on significance — the common practice of "we'll check again next month to see if it's still significant." If the analyst genuinely never looks before month 24, the t-test is valid; in practice, nobody does this.
 
 
 ## Related Libraries
