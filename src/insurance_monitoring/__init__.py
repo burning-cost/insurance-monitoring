@@ -5,6 +5,9 @@ Modules
 -------
 drift
     PSI, CSI, KS test, Wasserstein distance for feature distribution monitoring.
+drift_attribution
+    DriftAttributor (TRIPODD): feature-interaction-aware drift attribution with
+    Type I error control. Identifies which features explain model performance drift.
 calibration
     A/E ratio, Hosmer-Lemeshow, and the full calibration suite:
     balance property test, auto-calibration, Murphy decomposition, rectification.
@@ -21,8 +24,18 @@ Quick start
 
     from insurance_monitoring import MonitoringReport
     from insurance_monitoring.drift import psi
+    from insurance_monitoring.drift_attribution import DriftAttributor
     from insurance_monitoring.calibration import ae_ratio, check_balance, CalibrationChecker
     from insurance_monitoring.discrimination import gini_coefficient
+
+v0.4.0 changes
+--------------
+- ``DriftAttributor`` and ``DriftAttributionResult`` added to
+  ``insurance_monitoring.drift_attribution``. Implements TRIPODD
+  (Panda et al. 2025, arXiv:2503.06606): feature-interaction-aware drift
+  detection with bootstrap Bonferroni Type I error control.
+  Goes beyond PSI/KS — tells you *which* features (and interactions) explain
+  why model performance has degraded. Exported from top-level package.
 
 v0.3.3 changes
 --------------
@@ -91,6 +104,10 @@ from insurance_monitoring.drift import (
     psi,
     wasserstein_distance,
 )
+from insurance_monitoring.drift_attribution import (
+    DriftAttributor,
+    DriftAttributionResult,
+)
 from insurance_monitoring.report import MonitoringReport
 from insurance_monitoring.thresholds import (
     AERatioThresholds,
@@ -99,7 +116,7 @@ from insurance_monitoring.thresholds import (
     PSIThresholds,
 )
 
-__version__ = "0.3.3"
+__version__ = "0.4.0"
 
 __all__ = [
     # drift
@@ -107,6 +124,9 @@ __all__ = [
     "csi",
     "ks_test",
     "wasserstein_distance",
+    # drift attribution (TRIPODD)
+    "DriftAttributor",
+    "DriftAttributionResult",
     # calibration — A/E monitoring
     "ae_ratio",
     "ae_ratio_ci",
