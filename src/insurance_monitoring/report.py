@@ -35,6 +35,7 @@ Usage
         feature_df_current=current_features,
         features=["driver_age", "vehicle_age", "ncd_years"],
         murphy_distribution="poisson",  # Murphy decomposition now always available
+        gini_bootstrap=True,            # add percentile CI on Gini (v0.6.0)
     )
     print(report.to_dict())
     print(report.to_polars())
@@ -51,7 +52,11 @@ import polars as pl
 
 from insurance_monitoring.calibration import ae_ratio, ae_ratio_ci
 from insurance_monitoring.calibration._murphy import murphy_decomposition
-from insurance_monitoring.discrimination import gini_coefficient, gini_drift_test
+from insurance_monitoring.discrimination import (
+    gini_coefficient,
+    gini_drift_test,
+    GiniDriftBootstrapTest,
+)
 from insurance_monitoring.drift import csi, psi
 from insurance_monitoring.thresholds import MonitoringThresholds
 
@@ -135,6 +140,14 @@ class MonitoringReport:
         GMCB > LMCB -> RECALIBRATE) from discrimination drift (DSC low ->
         REFIT). When set, it sharpens the recommendation logic beyond the
         simpler Gini/A/E heuristic.
+    gini_bootstrap : bool, default False
+        When True, compute GiniDriftBootstrapTest instead of the two-sample
+        gini_drift_test. Uses the reference period Gini as training_gini and
+        bootstraps the current (monitor) period to produce percentile CIs.
+        Adds ``ci_lower`` and ``ci_upper`` fields to ``results_["gini"]``.
+
+        When False (default), existing two-sample gini_drift_test behaviour
+        is preserved unchanged.
 
     Attributes
     ----------
@@ -160,6 +173,7 @@ class MonitoringReport:
     thresholds: MonitoringThresholds = field(default_factory=MonitoringThresholds)
     n_bootstrap: int = 200
     murphy_distribution: Optional[str] = None
+    gini_bootstrap: bool = False
 
     def __post_init__(self) -> None:
         self.results_: dict = {}
@@ -198,31 +212,56 @@ class MonitoringReport:
             self.current_predicted,
             exposure=self.exposure,
         )
-        n_ref = len(np.asarray(self.reference_actual))
-        n_cur = len(np.asarray(self.current_actual))
 
-        drift_result = gini_drift_test(
-            reference_gini=gini_ref,
-            current_gini=gini_cur,
-            n_reference=n_ref,
-            n_current=n_cur,
-            reference_actual=self.reference_actual,
-            reference_predicted=self.reference_predicted,
-            current_actual=self.current_actual,
-            current_predicted=self.current_predicted,
-            reference_exposure=self.reference_exposure,
-            current_exposure=self.exposure,
-            n_bootstrap=self.n_bootstrap,
-        )
-        gini_band = self.thresholds.gini_drift.classify(drift_result["p_value"])
-        results["gini"] = {
-            "reference": gini_ref,
-            "current": gini_cur,
-            "change": drift_result["gini_change"],
-            "z_statistic": drift_result["z_statistic"],
-            "p_value": drift_result["p_value"],
-            "band": gini_band,
-        }
+        if self.gini_bootstrap:
+            # One-sample bootstrap design: treat reference Gini as fixed scalar.
+            # Produces percentile CIs on both monitor Gini and the change.
+            bt = GiniDriftBootstrapTest(
+                training_gini=gini_ref,
+                monitor_actual=self.current_actual,
+                monitor_predicted=self.current_predicted,
+                monitor_exposure=self.exposure,
+                n_bootstrap=self.n_bootstrap,
+                random_state=None,
+            )
+            bt_result = bt.test()
+            gini_band = self.thresholds.gini_drift.classify(bt_result.p_value)
+            results["gini"] = {
+                "reference": gini_ref,
+                "current": gini_cur,
+                "change": bt_result.gini_change,
+                "z_statistic": bt_result.z_statistic,
+                "p_value": bt_result.p_value,
+                "ci_lower": bt_result.ci_lower,
+                "ci_upper": bt_result.ci_upper,
+                "band": gini_band,
+            }
+        else:
+            n_ref = len(np.asarray(self.reference_actual))
+            n_cur = len(np.asarray(self.current_actual))
+
+            drift_result = gini_drift_test(
+                reference_gini=gini_ref,
+                current_gini=gini_cur,
+                n_reference=n_ref,
+                n_current=n_cur,
+                reference_actual=self.reference_actual,
+                reference_predicted=self.reference_predicted,
+                current_actual=self.current_actual,
+                current_predicted=self.current_predicted,
+                reference_exposure=self.reference_exposure,
+                current_exposure=self.exposure,
+                n_bootstrap=self.n_bootstrap,
+            )
+            gini_band = self.thresholds.gini_drift.classify(drift_result["p_value"])
+            results["gini"] = {
+                "reference": gini_ref,
+                "current": gini_cur,
+                "change": drift_result["gini_change"],
+                "z_statistic": drift_result["z_statistic"],
+                "p_value": drift_result["p_value"],
+                "band": gini_band,
+            }
 
         # --- Score PSI ---
         if self.score_reference is not None and self.score_current is not None:
@@ -348,6 +387,7 @@ class MonitoringReport:
         CSI per-feature rows are included with metric names like 'csi_driver_age'.
         Murphy rows are included as 'murphy_discrimination', 'murphy_miscalibration',
         etc. when murphy_distribution is set.
+        When gini_bootstrap=True, adds 'gini_ci_lower' and 'gini_ci_upper' rows.
         """
         rows = []
 
@@ -361,6 +401,19 @@ class MonitoringReport:
         rows.append({"metric": "gini_reference", "value": gini["reference"], "band": "green"})
         rows.append({"metric": "gini_change", "value": gini["change"], "band": gini["band"]})
         rows.append({"metric": "gini_p_value", "value": gini["p_value"], "band": gini["band"]})
+
+        # CI rows present only when gini_bootstrap=True
+        if "ci_lower" in gini:
+            rows.append({
+                "metric": "gini_ci_lower",
+                "value": gini["ci_lower"],
+                "band": gini["band"],
+            })
+            rows.append({
+                "metric": "gini_ci_upper",
+                "value": gini["ci_upper"],
+                "band": gini["band"],
+            })
 
         if "score_psi" in self.results_:
             sp = self.results_["score_psi"]

@@ -12,7 +12,8 @@ calibration
     A/E ratio, Hosmer-Lemeshow, and the full calibration suite:
     balance property test, auto-calibration, Murphy decomposition, rectification.
 discrimination
-    Gini coefficient, Gini drift tests (arXiv 2510.04556), Lorenz curves.
+    Gini coefficient, Gini drift tests (arXiv 2510.04556), Lorenz curves,
+    and GiniDriftBootstrapTest with percentile CIs and governance plot.
 report
     MonitoringReport — combined check with traffic-light output.
 sequential
@@ -29,8 +30,30 @@ Quick start
     from insurance_monitoring.drift import psi
     from insurance_monitoring.drift_attribution import DriftAttributor
     from insurance_monitoring.calibration import ae_ratio, check_balance, CalibrationChecker
-    from insurance_monitoring.discrimination import gini_coefficient
+    from insurance_monitoring.discrimination import gini_coefficient, GiniDriftBootstrapTest
     from insurance_monitoring.sequential import SequentialTest
+
+v0.6.0 changes
+--------------
+- ``GiniDriftBootstrapTest`` and ``GiniBootstrapResult`` added to
+  ``insurance_monitoring.discrimination``. Class-based one-sample bootstrap
+  Gini drift test with:
+
+  - Percentile bootstrap CI for both the monitor Gini and the Gini change
+  - ``.plot()`` method producing a bootstrap histogram with CI shading, training
+    Gini line, monitor Gini line, and z/p annotation box — a standard IFoA/PRA
+    model validation deliverable
+  - ``.summary()`` returning a governance-ready plain-text report paragraph
+  - Bootstrap replicates stored for post-hoc inspection
+  - Lazy evaluation (bootstrap runs on first ``.test()`` call, then cached)
+
+  Wraps the existing ``_bootstrap_gini_samples()`` helper — no duplicated
+  bootstrap logic. BCa CIs deliberately omitted (jackknife cost not justified
+  for approximately-normal Gini bootstrap distribution at n >= 200).
+
+- ``MonitoringReport`` gains ``gini_bootstrap: bool = False`` parameter.
+  When True, uses GiniDriftBootstrapTest and adds ``ci_lower`` / ``ci_upper``
+  fields to ``results_["gini"]`` and corresponding rows to ``to_polars()``.
 
 v0.5.0 changes
 --------------
@@ -108,6 +131,8 @@ from insurance_monitoring.discrimination import (
     gini_drift_test_onesample,
     GiniDriftResult,
     GiniDriftOneSampleResult,
+    GiniBootstrapResult,
+    GiniDriftBootstrapTest,
     lorenz_curve,
 )
 from insurance_monitoring.drift import (
@@ -133,7 +158,7 @@ from insurance_monitoring.thresholds import (
     PSIThresholds,
 )
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 __all__ = [
     # drift
@@ -167,6 +192,8 @@ __all__ = [
     "gini_drift_test_onesample",
     "GiniDriftResult",
     "GiniDriftOneSampleResult",
+    "GiniBootstrapResult",
+    "GiniDriftBootstrapTest",
     "lorenz_curve",
     # report
     "MonitoringReport",
