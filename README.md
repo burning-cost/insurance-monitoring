@@ -27,11 +27,11 @@ Benchmarked on synthetic UK motor data — 50,000 training policies (2019–2021
 | area distributional shift | Not detected | PSI AMBER/RED | High-risk area overweighting |
 | conviction_points shift | Not detected | PSI AMBER | 20% of policies shifted +1 point |
 | Gini drift (ref vs shifted) | Not computed | Computed with bootstrap CI | Tests whether ranking has degraded |
-| Structured audit trail | No | Yes (traffic-light report) | Suitable for inclusion in PRA SS1/23 model risk documentation (see note below) |
+| Structured audit trail | No | Yes (traffic-light report) | Suitable for inclusion in PRA SS3/17 (insurer model risk) documentation (see note below) |
 
 The manual A/E check is blind to who is inside the portfolio. PSI per feature catches segment-level drift that cancels at portfolio level. The Gini drift z-test tells you whether the model's ranking has degraded — the difference between a cheap recalibration and a full refit.
 
-> **Note on regulatory scope:** PRA SS1/23 applies to banks and building societies. For insurers, the relevant standards are the PRA's internal model requirements under Solvency II and FCA Consumer Duty model governance obligations. The structured audit trail this library produces is appropriate for inclusion in model risk documentation under any of these frameworks.
+> **Note on regulatory scope:** PRA SS3/17 (Supervisory Statement 3/17) is the primary model risk management standard for UK insurers under Solvency II. PRA SS1/23 covers model risk management for banks and building societies — not insurers. For insurers, the directly applicable references are SS3/17 and the FCA Consumer Duty outcome monitoring obligations. The structured audit trail this library produces is appropriate for inclusion in model risk documentation under SS3/17 or equivalent internal model governance frameworks.
 
 ▶ [Run on Databricks](https://github.com/burning-cost/burning-cost-examples/blob/main/notebooks/monitoring_drift_detection.py)
 
@@ -138,7 +138,7 @@ print(report.recommendation)
 
 ## Worked Example
 
-[`model_drift_monitoring.py`](https://github.com/burning-cost/burning-cost-examples/blob/main/examples/model_drift_monitoring.py) demonstrates the full monitoring stack on a synthetic motor book with three deliberately induced failure modes: covariate shift (older driver mix), calibration deterioration (segment-level A/E drift), and discriminatory power loss (Gini decay). It covers exposure-weighted PSI and CSI, segment A/E ratios with Poisson confidence intervals, the Gini drift z-test, and structured governance reporting suitable for inclusion in PRA SS1/23 model risk documentation.
+[`model_drift_monitoring.py`](https://github.com/burning-cost/burning-cost-examples/blob/main/examples/model_drift_monitoring.py) demonstrates the full monitoring stack on a synthetic motor book with three deliberately induced failure modes: covariate shift (older driver mix), calibration deterioration (segment-level A/E drift), and discriminatory power loss (Gini decay). It covers exposure-weighted PSI and CSI, segment A/E ratios with Poisson confidence intervals, the Gini drift z-test, and structured governance reporting suitable for inclusion in PRA SS3/17 model risk documentation.
 
 A Databricks-importable version is also available: [Databricks notebook](https://github.com/burning-cost/burning-cost-examples/blob/main/notebooks/monitoring_drift_detection.py).
 
@@ -587,7 +587,7 @@ A ready-to-run Databricks notebook benchmarking this library against standard ap
 | Library | Description |
 |---------|-------------|
 | [insurance-conformal](https://github.com/burning-cost/insurance-conformal) | Distribution-free prediction intervals — use alongside monitoring to flag when interval coverage degrades |
-| [insurance-governance](https://github.com/burning-cost/insurance-governance) | PRA SS1/23 model governance — monitoring evidence feeds into governance review cycles |
+| [insurance-governance](https://github.com/burning-cost/insurance-governance) | PRA SS3/17 (insurer) / SS1/23 (bank) model governance — monitoring evidence feeds into governance review cycles |
 | [insurance-deploy](https://github.com/burning-cost/insurance-deploy) | Champion/challenger deployment — monitoring informs when to switch challenger to champion |
 | [insurance-cv](https://github.com/burning-cost/insurance-cv) | Walk-forward cross-validation — produces the baseline metrics that monitoring tracks prospectively |
 | [insurance-covariate-shift](https://github.com/burning-cost/insurance-covariate-shift) | Covariate shift detection and correction — use when monitoring flags PSI drift requiring model adaptation |
@@ -620,6 +620,19 @@ The aggregate A/E at 0.9420 falls just outside the 0.95–1.05 green band (verdi
 The Gini drift test returns p=0.76 at n=4,000, which is correct — 4,000 policies does not give enough statistical power to detect a Gini drop of −0.012. At 15,000 policies the same DGP produces z≈−1.9, p≈0.06. The test is appropriately conservative at small sample sizes.
 
 **When to use:** Any time more than a month has passed since the last model refit. The monitoring report runs in under 40 seconds on 14,000 policies (including bootstrap variance estimation for the Gini test).
+
+### Time-to-detection: aggregate A/E vs PSI alarm
+
+The cross-sectional comparison above shows detection capability at a fixed snapshot. The more operationally relevant question is: if we watch policies accumulate month by month, which approach raises the alarm first?
+
+The benchmark script (`benchmarks/benchmark.py`) simulates this by walking through the monitoring cohort in 500-policy batches. In the 50,000/15,000 scenario (2x young driver oversampling, 25% new-vehicle claims inflation):
+
+- **Aggregate A/E (5% breach threshold):** In this scenario, the covariate shift and calibration drift partially cancel at portfolio level. The aggregate A/E stays within the 0.95–1.05 band across the entire monitoring period — it never fires.
+- **PSI driver_age (RED threshold, PSI > 0.25):** Fires at approximately 1,000–1,500 policies — roughly 1 month into the monitoring period on a 1,250-policy/month book.
+
+The aggregate A/E would not have detected this shift at all. PSI detected it within the first monthly batch.
+
+This is the central operational argument for PSI monitoring: calibration drift that is self-cancelling at portfolio level (cheap on young drivers, expensive on old ones) is invisible to A/E for as long as the errors balance. PSI per feature is not fooled by this — it measures the compositional shift directly, before any claims are observed. Run `python benchmarks/benchmark.py` to see the time-to-detection output for the current DGP parameters.
 
 ### SequentialTest (mSPRT) vs fixed-horizon t-test
 

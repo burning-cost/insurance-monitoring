@@ -669,7 +669,7 @@ print("Plot saved to /tmp/benchmark_insurance_monitoring.png")
 # MAGIC - You need to detect covariate shift in individual rating factors, not just portfolio-level
 # MAGIC   volume changes. PSI per feature catches drift that aggregate A/E will miss until it is
 # MAGIC   too late — the model has been writing mispriced business for months before the A/E flags.
-# MAGIC - Regulatory requirements (PRA model risk management, SS1/23) require documented,
+# MAGIC - Regulatory requirements (PRA model risk management, SS3/17 for insurers) require documented,
 # MAGIC   reproducible monitoring reports rather than ad-hoc spreadsheet checks. MonitoringReport
 # MAGIC   produces a structured output with a complete audit trail.
 # MAGIC - You have multiple models in production and need a consistent monitoring framework:

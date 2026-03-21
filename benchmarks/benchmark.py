@@ -308,7 +308,7 @@ checks = [
     ("Gini discrimination decay", "NO", "YES"),
     ("Murphy decomposition (REFIT vs RECAL)", "NO", "YES"),
     ("Structured recommendation", "NO", f"YES ({report.recommendation})"),
-    ("PRA SS1/23 audit trail", "NO", "YES"),
+    ("PRA SS3/17 (insurer model risk) audit trail", "NO", "YES"),
 ]
 
 for check, manual, library in checks:
@@ -317,6 +317,75 @@ for check, manual, library in checks:
 print()
 print(f"  Aggregate A/E (monitoring period): {aggregate_ae:.4f}  — looks OK to manual check")
 print(f"  But MonitoringReport recommends:   {report.recommendation}")
+print()
+
+
+# ---------------------------------------------------------------------------
+# TIME-TO-DETECTION: aggregate A/E breach vs library first alarm
+# ---------------------------------------------------------------------------
+# Simulate how many policies need to accumulate before each approach raises an alarm.
+# Aggregate A/E: breach when cumulative A/E exceeds 1.05 (5% threshold).
+# Library: PSI fires at a 5% threshold for driver_age once enough data exists.
+# This simulates a monitoring team watching the book grow from 0 to N_CUR policies.
+
+print("-" * 70)
+print("TIME-TO-DETECTION: cumulative A/E 5% breach vs PSI alarm")
+print("-" * 70)
+print()
+
+PSI_N_BINS = 10
+PSI_THRESHOLD = 0.25  # RED band
+
+# Sort current monitoring period by arrival order (already in order for this DGP)
+# Walk through policies 1..N_CUR and compute cumulative A/E and PSI after each batch
+BATCH_SIZE = 500  # check every 500 policies
+
+ae_breach_n = None
+psi_alarm_n = None
+
+for n in range(BATCH_SIZE, N_CUR + 1, BATCH_SIZE):
+    # Cumulative A/E
+    cumulative_ae = float(act_cur[:n].sum()) / float(pred_cur_degraded[:n].sum())
+    if ae_breach_n is None and abs(cumulative_ae - 1.0) > 0.05:
+        ae_breach_n = n
+
+    # PSI for driver_age (most shifted feature)
+    ref_vals = driver_age_ref.astype(float)
+    cur_vals = driver_age_cur[:n].astype(float)
+    # Compute PSI manually (same as library)
+    ref_bins = np.percentile(ref_vals, np.linspace(0, 100, PSI_N_BINS + 1))
+    ref_bins[0]  -= 1e-6
+    ref_bins[-1] += 1e-6
+    ref_hist = np.histogram(ref_vals,  bins=ref_bins)[0] / len(ref_vals)
+    cur_hist = np.histogram(cur_vals,  bins=ref_bins)[0] / len(cur_vals)
+    # Clip zeros for log stability
+    ref_hist = np.clip(ref_hist, 1e-8, None)
+    cur_hist = np.clip(cur_hist, 1e-8, None)
+    psi_da = float(np.sum((cur_hist - ref_hist) * np.log(cur_hist / ref_hist)))
+    if psi_alarm_n is None and psi_da >= PSI_THRESHOLD:
+        psi_alarm_n = n
+
+print(f"  N_CUR = {N_CUR:,} policies in the monitoring period")
+print(f"  Aggregate A/E (final): {aggregate_ae:.4f}  (breach if |A/E - 1| > 0.05)")
+print()
+if ae_breach_n is not None:
+    print(f"  Aggregate A/E first breaches 5% threshold at: policy {ae_breach_n:,}  (month ~{ae_breach_n // 1250})")
+else:
+    print(f"  Aggregate A/E never breaches 5% threshold in {N_CUR:,} policies")
+if psi_alarm_n is not None:
+    print(f"  PSI driver_age first hits RED threshold at:   policy {psi_alarm_n:,}  (month ~{psi_alarm_n // 1250})")
+else:
+    print(f"  PSI driver_age RED threshold not reached in {N_CUR:,} policies")
+print()
+if ae_breach_n is None and psi_alarm_n is not None:
+    print("  CONCLUSION: aggregate A/E never flagged the shift; PSI detected it first.")
+elif ae_breach_n is not None and psi_alarm_n is not None:
+    if psi_alarm_n < ae_breach_n:
+        print(f"  PSI alarm fires {ae_breach_n - psi_alarm_n:,} policies earlier than A/E breach.")
+    else:
+        print(f"  A/E breach fires {psi_alarm_n - ae_breach_n:,} policies earlier than PSI alarm.")
+else:
+    print("  Neither method breached its threshold in this monitoring period.")
 print()
 
 elapsed = time.time() - BENCHMARK_START
