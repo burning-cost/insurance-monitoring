@@ -167,6 +167,44 @@ def test_warm_start_no_alarm():
     assert monitor.t == 0
 
 
+
+def test_warm_start_no_alarm_after_updates():
+    """P0 regression: warm_start then update_many must not spuriously alarm.
+
+    Before the fix, _sorted_pits retained N_historical observations after
+    warm_start while t reset to 0. At t=1, _compute_pvalue computed rank among
+    (N_historical + 1) observations and divided by t=1, giving p-values ~ 250.
+    This caused immediate false alarms on any data.
+
+    With the fix, _sorted_pits is cleared at the end of warm_start. The
+    conformal p-value starts fresh from rank/t with an empty list, while the
+    histogram estimator retains the warm-start information.
+    """
+    rng = np.random.default_rng(42)
+    monitor = PITMonitor(alpha=0.05, n_bins=50, rng=42)
+    monitor.warm_start(rng.uniform(0, 1, 500))
+
+    # Sorted list must be empty after warm_start
+    assert len(monitor._sorted_pits) == 0, (
+        "warm_start must clear _sorted_pits to preserve anytime-valid guarantee"
+    )
+    assert monitor.t == 0
+
+    # Feed 500 uniform PITs — should not alarm under the null
+    monitoring_pits = rng.uniform(0, 1, 500)
+    result = monitor.update_many(monitoring_pits, stop_on_alarm=True)
+
+    assert not result.triggered, (
+        f"Spurious alarm at step {monitor.alarm_time} (evidence={monitor.evidence:.2f}). "
+        "warm_start P0 fix may be missing."
+    )
+    # All p-values should be in [0, 1]
+    pvals = monitor.pvalues
+    assert np.all(pvals >= 0.0) and np.all(pvals <= 1.0), (
+        f"p-values out of [0,1] range: min={pvals.min():.3f} max={pvals.max():.3f}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Test 10: Evidence freezes after alarm
 # ---------------------------------------------------------------------------

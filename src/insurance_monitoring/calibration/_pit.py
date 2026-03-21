@@ -229,15 +229,13 @@ class PITMonitor:
     def _compute_pvalue(self, pit: float) -> float:
         """Convert a PIT to a conformal p-value with tie-breaking randomisation.
 
-        Inserts pit into the sorted structure (including current), then computes
-        rank using bisect. V_t is a CONTINUOUS Uniform(0, right-left) draw —
+        Rank is computed over the sorted structure (pit must already be inserted
+        by the caller). V_t is a CONTINUOUS Uniform(0, right-left) draw —
         this is essential for p_t ~ Uniform(0,1) exactly under H0.
 
         For continuous PITs (no exact ties between observations), right-left = 1
         (only U_t itself), and V_t ~ U(0,1), giving p_t ~ Uniform(0,1).
         """
-        # Insert into sorted list (already incremented t before calling)
-        self._sorted_pits.add(pit)
         t = self.t  # already updated by caller
 
         left = self._sorted_pits.bisect_left(pit)
@@ -245,7 +243,7 @@ class PITMonitor:
         # V_t ~ Continuous Uniform(0, right - left).
         # Even when right-left = 1 (no prior ties, only U_t in the group),
         # this randomisation makes p_t exactly Uniform(0,1) under H0.
-        v = float(self._rng.uniform(0.0, float(right - left)))
+        v = float(self._rng.uniform(0.0, max(float(right - left), 1.0)))
         return (left + v) / t
 
     def _compute_evalue(self, pval: float) -> float:
@@ -263,6 +261,14 @@ class PITMonitor:
     def _step(self, pit: float) -> PITAlarm:
         """Process one PIT. Increments t and updates all state."""
         self.t += 1
+
+        # Only insert into sorted list while monitoring is active.
+        # After alarm fires, _sorted_pits stops growing — it is only used for
+        # conformal p-value ranking and calibration_score(), both of which are
+        # irrelevant once an alarm has been raised. This prevents unbounded
+        # memory growth for long post-alarm observation streams.
+        if not self.alarm_triggered:
+            self._sorted_pits.add(pit)
 
         pval = self._compute_pvalue(pit)
         e_t = self._compute_evalue(pval)
@@ -301,6 +307,11 @@ class PITMonitor:
             repetition: the PIT is processed round(max(exposure, 1)) times.
             Fractional values are rounded. Preserves the anytime-valid
             guarantee by construction.
+
+            Warning: exposure values below 1.0 are silently treated as 1.0.
+            If you need to down-weight short-tenure policies, apply that
+            adjustment before calling update() rather than passing a
+            sub-unit exposure here.
 
         Returns
         -------
@@ -412,11 +423,16 @@ class PITMonitor:
         if not self.alarm_triggered:
             return None
 
-        T = len(self._history)
+        # Limit to alarm_time observations. The changepoint must precede the
+        # alarm, so including post-alarm p-values (which are computed on a
+        # frozen sorted list and carry no information about when the shift
+        # occurred) adds noise and can pull the estimate rightward.
+        T = self.alarm_time if self.alarm_time is not None else len(self._history)
+        T = min(T, len(self._history))
         if T < 2:
             return 1
 
-        pvals = [h[1] for h in self._history]
+        pvals = [h[1] for h in self._history[:T]]
         B = self.n_bins
         kappa = 0.5  # Jeffreys prior
 
@@ -506,12 +522,19 @@ class PITMonitor:
             b = min(int(math.floor(pit * self.n_bins)), self.n_bins - 1)
             self._bin_counts[b] += 1.0
 
-        # Reset evidence — history does not contribute to alarm
+        # Reset evidence — history does not contribute to alarm.
+        # Crucially, _sorted_pits must also be cleared: the conformal p-value
+        # is rank / t, and t resets to 0. If _sorted_pits retained historical
+        # observations, rank at t=1 would be ~N_historical/2, giving p-values
+        # in the hundreds and completely breaking the anytime-valid guarantee.
+        # The histogram (bin_counts) keeps the warm-start benefit; the sorted
+        # list does not.
         self._M = 0.0
         self.t = 0
         self._history = []
         self.alarm_triggered = False
         self.alarm_time = None
+        self._sorted_pits = SortedList()
 
     # ------------------------------------------------------------------
     # Summary and diagnostics
@@ -548,8 +571,17 @@ class PITMonitor:
             return 0.0
         sorted_arr = np.array(self._sorted_pits)
         n = len(sorted_arr)
-        ecdf = np.arange(1, n + 1) / n
-        ks_stat = float(np.max(np.abs(ecdf - sorted_arr)))
+        # Two-sided KS statistic: max of right-side and left-side discrepancies.
+        # One-sided (right only) misses cases where the ECDF runs below the
+        # diagonal — e.g. PITs concentrated near 0.
+        ecdf_right = np.arange(1, n + 1) / n
+        ecdf_left = np.arange(0, n) / n
+        ks_stat = float(
+            max(
+                np.max(np.abs(ecdf_right - sorted_arr)),
+                np.max(np.abs(ecdf_left - sorted_arr)),
+            )
+        )
         return 1.0 - ks_stat
 
     def reset(self) -> None:
