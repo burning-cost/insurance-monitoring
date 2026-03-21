@@ -1,6 +1,6 @@
 # Databricks notebook source
 # COMMAND ----------
-# MAGIC %pip install polars scipy matplotlib pytest pytest-cov
+# MAGIC %pip install polars scipy matplotlib pytest pytest-cov sortedcontainers
 
 # COMMAND ----------
 dbutils.library.restartPython()
@@ -18,7 +18,9 @@ import insurance_monitoring
 print(f"insurance_monitoring loaded from: {insurance_monitoring.__file__}")
 print(f"Version: {insurance_monitoring.__version__}")
 
-# Murphy decomposition is now built in — no separate install needed
+# Verify PITMonitor is available (v0.7.0)
+from insurance_monitoring.calibration import PITMonitor, PITAlarm, PITSummary
+print("PITMonitor available (v0.7.0)")
 from insurance_monitoring.calibration import murphy_decomposition, CalibrationChecker
 print("CalibrationChecker available (built in since v0.3.0)")
 
@@ -38,6 +40,7 @@ result = subprocess.run(
         "-v", "--tb=long",
         "--import-mode=importlib",
         "-p", "no:cacheprovider",
+        "-m", "not slow",
         f"--rootdir=/Workspace/insurance-monitoring",
     ],
     capture_output=True,

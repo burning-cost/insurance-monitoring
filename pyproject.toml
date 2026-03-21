@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "insurance-monitoring"
-version = "0.6.0"
-description = "Model drift detection, monitoring, calibration, and sequential A/B testing for insurance pricing models. PSI, CSI, Gini drift, A/E ratios, balance property testing, Murphy decomposition, TRIPODD drift attribution, mSPRT champion/challenger, bootstrap Gini CIs."
+version = "0.7.0"
+description = "Model drift detection, monitoring, calibration, and sequential A/B testing for insurance pricing models. PSI, CSI, Gini drift, A/E ratios, balance property testing, Murphy decomposition, TRIPODD drift attribution, mSPRT champion/challenger, bootstrap Gini CIs, PITMonitor e-process calibration monitoring."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 authors = [{ name = "Burning Cost", email = "pricing.frontier@gmail.com" }]
-keywords = ["insurance", "monitoring", "drift", "PSI", "Gini", "calibration", "murphy", "pricing", "actuarial", "TRIPODD", "sequential", "a/b testing", "champion challenger", "mSPRT"]
+keywords = ["insurance", "monitoring", "drift", "PSI", "Gini", "calibration", "murphy", "pricing", "actuarial", "TRIPODD", "sequential", "a/b testing", "champion challenger", "mSPRT", "PIT", "e-process", "anytime-valid"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Financial and Insurance Industry",
@@ -28,6 +28,7 @@ dependencies = [
     "polars>=1.0",
     "scipy>=1.12",
     "matplotlib>=3.7",
+    "sortedcontainers>=2.4",
 ]
 
 [project.optional-dependencies]

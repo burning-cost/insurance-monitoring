@@ -16,6 +16,7 @@ interpretable_drift
 calibration
     A/E ratio, Hosmer-Lemeshow, and the full calibration suite:
     balance property test, auto-calibration, Murphy decomposition, rectification.
+    PITMonitor for anytime-valid calibration change detection in production.
 discrimination
     Gini coefficient, Gini drift tests (arXiv 2510.04556), Lorenz curves,
     and GiniDriftBootstrapTest with percentile CIs and governance plot.
@@ -38,6 +39,27 @@ Quick start
     from insurance_monitoring.calibration import ae_ratio, check_balance, CalibrationChecker
     from insurance_monitoring.discrimination import gini_coefficient, GiniDriftBootstrapTest
     from insurance_monitoring.sequential import SequentialTest
+    from insurance_monitoring import PITMonitor
+
+v0.7.0 changes
+--------------
+- ``PITMonitor``, ``PITAlarm``, ``PITSummary`` added to
+  ``insurance_monitoring.calibration``. Anytime-valid calibration change detection
+  via probability integral transforms and mixture e-processes. Reference:
+  Henzi, Murph, Ziegel (2025), arXiv:2603.13156.
+
+  Guarantee: P(ever alarm | model calibrated) <= alpha, for all t, forever.
+  Solves the repeated-testing inflation in monthly H-L / A/E monitoring.
+
+  New features vs. existing CalibrationChecker:
+
+  - Sequential: processes one observation at a time, suitable for live deployment
+  - Anytime-valid: no correction needed for repeated checks
+  - Changepoint estimation: identifies when calibration degraded (Bayes factor scan)
+  - Warm-start: pre-load historical PITs to avoid cold-start sensitivity loss
+  - Exposure weighting: integer-repetition weighting preserves formal guarantee
+
+  New dependency: ``sortedcontainers>=2.4`` (pure Python, zero transitive deps).
 
 v0.7.0 changes (in progress)
 -----------------------------
@@ -148,6 +170,10 @@ from insurance_monitoring.calibration import (
     MurphyResult,
     CalibrationReport,
     CalibrationChecker,
+    # Sequential calibration monitoring (v0.7.0)
+    PITMonitor,
+    PITAlarm,
+    PITSummary,
 )
 from insurance_monitoring.discrimination import (
     gini_coefficient,
@@ -186,7 +212,7 @@ from insurance_monitoring.thresholds import (
     PSIThresholds,
 )
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 __all__ = [
     # drift
@@ -217,6 +243,10 @@ __all__ = [
     "MurphyResult",
     "CalibrationReport",
     "CalibrationChecker",
+    # sequential calibration monitoring (v0.7.0)
+    "PITMonitor",
+    "PITAlarm",
+    "PITSummary",
     # discrimination
     "gini_coefficient",
     "gini_drift_test",

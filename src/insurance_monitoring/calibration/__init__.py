@@ -20,8 +20,16 @@ This package consolidates two calibration layers:
    - Result types: :class:`BalanceResult`, :class:`AutoCalibResult`,
      :class:`MurphyResult`, :class:`CalibrationReport`
 
+3. **Sequential calibration monitoring** (v0.7.0):
+   - :class:`PITMonitor` — Anytime-valid calibration change detection via
+     mixture e-process over probability integral transforms. For deployed models:
+     P(ever alarm | calibrated) <= alpha, forever, with no correction needed.
+   - :class:`PITAlarm` — Result returned by PITMonitor.update()
+   - :class:`PITSummary` — Full monitoring state snapshot
+
 The A/E layer is appropriate for routine monitoring (monthly/quarterly dashboards).
 The calibration suite is for model sign-off, root-cause diagnosis, and rectification.
+PITMonitor is for ongoing production monitoring with formal type I error control.
 
 All functions are exposure-weighted and model-agnostic — they accept any prediction array.
 
@@ -42,6 +50,14 @@ Quick start
     checker = CalibrationChecker(distribution='poisson')
     report = checker.check(y_holdout, y_hat_holdout, exposure_holdout)
     print(report.verdict())  # 'OK', 'RECALIBRATE', or 'REFIT'
+
+    # Production drift monitoring: anytime-valid
+    from insurance_monitoring.calibration import PITMonitor
+    from scipy.stats import poisson
+    monitor = PITMonitor(alpha=0.05, rng=42)
+    alarm = monitor.update(float(poisson.cdf(y_claims, mu=exposure * lambda_hat)))
+    if alarm:
+        print(f"Calibration shift detected at step {alarm.time}")
 """
 
 from __future__ import annotations
@@ -84,6 +100,15 @@ from insurance_monitoring.calibration._plots import (
     plot_calibration_report,
 )
 
+# ------------------------------------------------------------------
+# Sequential calibration monitoring (v0.7.0)
+# ------------------------------------------------------------------
+from insurance_monitoring.calibration._pit import (
+    PITMonitor,
+    PITAlarm,
+    PITSummary,
+)
+
 __all__ = [
     # A/E monitoring
     "ae_ratio",
@@ -114,4 +139,8 @@ __all__ = [
     "plot_murphy",
     "plot_balance_over_time",
     "plot_calibration_report",
+    # Sequential calibration monitoring (v0.7.0)
+    "PITMonitor",
+    "PITAlarm",
+    "PITSummary",
 ]
