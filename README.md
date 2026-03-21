@@ -582,20 +582,15 @@ Demonstrated on synthetic UK motor data with three deliberately induced failure 
 
 A ready-to-run Databricks notebook benchmarking this library against standard approaches is available in [burning-cost-examples](https://github.com/burning-cost/burning-cost-examples/blob/main/notebooks/monitoring_drift_detection.py).
 
-## Related libraries
+## Related Libraries
 
-| Library | Why it's relevant |
-|---------|------------------|
-| [shap-relativities](https://github.com/burning-cost/shap-relativities) | Extract rating relativities from GBMs — when monitoring flags REFIT, use SHAP to diagnose which factors have drifted most |
-| [insurance-interactions](https://github.com/burning-cost/insurance-interactions) | GLM interaction detection — a refit triggered by Gini degradation may need new interactions added |
-| [insurance-causal-policy](https://github.com/burning-cost/insurance-causal-policy) | SDID causal evaluation — if monitoring shows deterioration after a rate change, use this to isolate cause |
-| [insurance-cv](https://github.com/burning-cost/insurance-cv) | Walk-forward cross-validation — use monitoring outputs to decide when to retrain and validate the retrained model |
-| [insurance-optimise](https://github.com/burning-cost/insurance-optimise) | Constrained rate change optimisation — monitoring informs when a rate adjustment is needed; rate-optimiser determines the right one |
-
-[All Burning Cost libraries →](https://burning-cost.github.io)
-
----
-
+| Library | Description |
+|---------|-------------|
+| [insurance-conformal](https://github.com/burning-cost/insurance-conformal) | Distribution-free prediction intervals — use alongside monitoring to flag when interval coverage degrades |
+| [insurance-governance](https://github.com/burning-cost/insurance-governance) | PRA SS1/23 model governance — monitoring evidence feeds into governance review cycles |
+| [insurance-deploy](https://github.com/burning-cost/insurance-deploy) | Champion/challenger deployment — monitoring informs when to switch challenger to champion |
+| [insurance-cv](https://github.com/burning-cost/insurance-cv) | Walk-forward cross-validation — produces the baseline metrics that monitoring tracks prospectively |
+| [insurance-covariate-shift](https://github.com/burning-cost/insurance-covariate-shift) | Covariate shift detection and correction — use when monitoring flags PSI drift requiring model adaptation |
 
 ## Performance
 
@@ -678,14 +673,6 @@ Exposure weighting changes the result when monitoring has different policy-term 
 
 **When to use `DriftAttributor`:** Automated monitoring pipelines where drift detection triggers an immediate action (retrain, alert). The simpler API is more appropriate for that workflow.
 
-
-## Related Libraries
-
-| Library | What it does |
-|---------|-------------|
-| [insurance-deploy](https://github.com/burning-cost/insurance-deploy) | Champion/challenger deployment — monitoring informs when to switch challenger to champion |
-| [insurance-cv](https://github.com/burning-cost/insurance-cv) | Walk-forward cross-validation — produces the baseline metrics that monitoring tracks prospectively |
-| [insurance-covariate-shift](https://github.com/burning-cost/insurance-covariate-shift) | Covariate shift detection and correction — use when monitoring flags PSI drift requiring model adaptation |
 
 ## Licence
 
