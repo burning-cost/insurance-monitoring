@@ -331,6 +331,134 @@ print(result.summary)
 
 **On the prior tau:** `tau=0.03` encodes a prior that meaningful effects are around 3% on the log-rate-ratio scale. For telematics experiments where you expect larger effects (10%+), increase to `tau=0.10`. For fine-tuning experiments where the effect is expected to be very small, decrease to `tau=0.01`.
 
+### `PITMonitor` — Anytime-valid calibration change detection (v0.7.0)
+
+The Hosmer-Lemeshow test was designed for a single holdout evaluation. Applying it monthly in production is a repeated-testing problem: with 12 monthly checks at alpha=0.05, the probability of a false alarm from a perfectly calibrated model reaches 46%. After two years: 71%.
+
+`PITMonitor` constructs a mixture e-process over probability integral transforms (PITs) from Henzi, Murph, Ziegel (2025, arXiv:2603.13156). The formal guarantee is P(ever alarm | model calibrated) <= alpha, at any checking frequency, forever. You can check it after every renewal batch, every week, or every policy without correction.
+
+This is distinct from `CalibrationChecker`, which tests absolute calibration on a fixed holdout. `PITMonitor` detects *changes* in calibration — a consistently biased model will not trigger. Use `CalibrationChecker` at model launch; use `PITMonitor` once deployed.
+
+```python
+from insurance_monitoring import PITMonitor
+from scipy.stats import poisson
+
+monitor = PITMonitor(alpha=0.05, n_bins=100, rng=42)
+
+# Process one policy at a time as renewals come in
+for row in live_claims_stream:
+    mu = row.exposure * row.lambda_hat
+    pit = float(poisson.cdf(row.claims, mu))  # F_hat(y | x)
+    alarm = monitor.update(pit)
+    if alarm:
+        print(f"Calibration drift detected at t={alarm.time}")
+        print(f"Estimated changepoint: t~{alarm.changepoint}")
+        break
+
+# Snapshot the current state
+summary = monitor.summary()
+# summary.alarm_triggered   — bool
+# summary.evidence          — current M_t value
+# summary.threshold         — 1/alpha (alarm fires when M_t >= threshold)
+# summary.changepoint       — estimated step when drift began
+# summary.calibration_score — 1 - KS statistic (continuous health metric)
+```
+
+For batch loading of historical PITs before live monitoring begins:
+
+```python
+# Warm start: pre-load 12 months of historical PITs
+# This builds the density estimator without accumulating evidence.
+# Subsequent updates start the e-process from zero — epistemically honest.
+monitor.warm_start(historical_pits)
+
+# Persist and restore state between monitoring runs
+monitor.save("pit_monitor_q1_2026.json")
+monitor_restored = PITMonitor.load("pit_monitor_q1_2026.json")
+```
+
+**PIT computation for common GLM families:**
+
+```python
+from scipy.stats import poisson, gamma, nbinom, norm
+
+# Poisson frequency
+pit = float(poisson.cdf(y_claims, mu=exposure * lambda_hat))
+
+# Gamma severity (shape=1/phi, scale=phi*mu)
+pit = float(gamma.cdf(y_loss, a=1/phi, scale=phi*mu_hat))
+
+# Negative Binomial
+pit = float(nbinom.cdf(y_claims, n=r, p=r/(r+mu)))
+```
+
+**When to use:** Any deployed pricing model checked on a recurring schedule — monthly renewals, weekly batch scoring, or per-policy online monitoring. The guarantee holds regardless of how often you check.
+
+**When NOT to use:** For absolute calibration checks at model sign-off (use `CalibrationChecker`). For champion/challenger A/B tests (use `SequentialTest`).
+
+### `InterpretableDriftDetector` — Feature-attributed drift with FDR control (v0.7.0)
+
+PSI and A/E tell you *that* drift occurred. `InterpretableDriftDetector` tells you *which* features are responsible. It implements TRIPODD (Panda et al. 2025, arXiv:2503.06606) with seven substantive improvements over the earlier `DriftAttributor` in this package.
+
+The core idea: measure how much each feature's marginal contribution to model loss has changed between the reference and monitoring windows. Features whose contribution shifted significantly are attributed as drift sources. For interactions (vehicle_age × telematics_score), the method detects pairs whose joint contribution changed even when their marginals are stable.
+
+```python
+from insurance_monitoring import InterpretableDriftDetector
+
+detector = InterpretableDriftDetector(
+    model=fitted_glm,                  # any object with .predict(X) -> np.ndarray
+    features=["driver_age", "vehicle_age", "ncb", "annual_mileage", "area"],
+    alpha=0.05,
+    loss="poisson_deviance",           # canonical GLM goodness-of-fit for frequency models
+    n_bootstrap=200,
+    error_control="fdr",              # Benjamini-Hochberg: more powerful than Bonferroni for d>=5
+    exposure_weighted=True,
+    random_state=42,
+)
+
+# Reference window: typically the model's training or validation data
+detector.fit_reference(X_ref, y_ref_claims, weights=exposure_ref)
+
+# Monitoring window: current quarter's new business
+result = detector.test(X_new, y_new_claims, weights=exposure_new)
+
+print(result.drift_detected)         # True / False
+print(result.attributed_features)    # ['vehicle_age', 'area']
+print(result.summary())              # governance-ready paragraph
+
+# Per-feature table: test_statistic, threshold, p_value, drift_attributed, rank
+df = result.feature_ranking
+```
+
+**What it adds over `DriftAttributor`:**
+
+- **Exposure weighting** — correct for mixed policy terms. An unweighted mean treats a 0.25-year policy and a 1.0-year policy as equal; exposure weighting gives the population-level picture.
+- **Poisson deviance loss** — MSE is not appropriate for count data. Poisson deviance is scale-invariant to exposure and is the canonical GLM goodness-of-fit.
+- **FDR control (Benjamini-Hochberg)** — with d=10 rating factors, Bonferroni gives effective per-test alpha=0.005. BH controls the false discovery rate at alpha=0.05 while being substantially more powerful. Use `error_control='fdr'` for d >= 5.
+- **Single bootstrap loop** — thresholds and p-values computed in one pass. Halved computational cost over `DriftAttributor`.
+- **Subset risk caching** — reference-side model calls pre-computed at `fit_reference()`. Subsequent `test()` calls are faster.
+- **Explicit `update_reference()`** — no auto-retrain on drift detection. Retraining requires external governance sign-off.
+
+**Convenience method for one-off quarterly checks:**
+
+```python
+result = InterpretableDriftDetector.from_dataframe(
+    model=fitted_glm,
+    df_ref=df_reference,
+    df_new=df_monitoring,
+    target_col="claim_count",
+    feature_cols=["driver_age", "vehicle_age", "ncb", "annual_mileage", "area"],
+    weight_col="exposure",
+    loss="poisson_deviance",
+    error_control="fdr",
+    n_bootstrap=200,
+)
+```
+
+**When to use:** Quarterly model reviews where you need to explain *why* performance has drifted — not just that it has. The feature-level attribution is the right artefact for a model governance pack. Use FDR control (`error_control='fdr'`) when you have five or more rating factors.
+
+**When to use `DriftAttributor` instead:** Online/streaming use cases where you need to detect drift and trigger an automated retrain pipeline. `DriftAttributor` has the simpler API for that workflow.
+
 ### `report` — Combined monitoring in one call
 
 ```python
@@ -428,6 +556,13 @@ The sequential testing module implements:
 > Johari et al. (2022). "Always Valid Inference: Continuous Monitoring of A/B Tests." Operations Research 70(3). arXiv:1512.04922.
 > Howard et al. (2021). "Time-uniform, nonparametric, nonasymptotic confidence sequences." Annals of Statistics 49(2).
 
+The PITMonitor implements:
+> Henzi, Murph, Ziegel (2025). "Anytime valid change detection for calibration." arXiv:2603.13156.
+
+The InterpretableDriftDetector implements:
+> Panda, Srinivas, Balasubramanian & Sinha (2025). "TRIPODD: Feature-Interaction-Aware Drift Detection with Type I Error Control." arXiv:2503.06606.
+> Benjamini & Hochberg (1995). "Controlling the False Discovery Rate." Journal of the Royal Statistical Society B, 57(1), 289–300.
+
 ---
 
 ## Capabilities Demo
@@ -503,6 +638,45 @@ Benchmarked on simulated UK motor champion/challenger data. 10,000 Monte Carlo s
 Under H1 (challenger 10% cheaper on frequency), mSPRT detects the effect in a median of 8 months on a 500-policy-per-arm-per-month book; a pre-registered t-test at 24 months would reach the same conclusion but forces the team to wait.
 
 The 25% FPR figure for the fixed-horizon t-test assumes monthly checks from month 1 with early stopping on significance — the common practice of "we'll check again next month to see if it's still significant." If the analyst genuinely never looks before month 24, the t-test is valid; in practice, nobody does this.
+
+### PITMonitor vs repeated Hosmer-Lemeshow testing
+
+Benchmarked on a simulated Poisson frequency model: 500 well-calibrated observations followed by 500 observations with a 15% rate inflation (model does not adjust). Hosmer-Lemeshow checked every 50 new observations; PITMonitor updated per observation. Full script: `benchmarks/benchmark_pit.py`.
+
+| Method | Nominal FPR | Empirical FPR (phase 1) | FPR inflation | Detects phase-2 drift |
+|--------|-------------|------------------------|--------------|----------------------|
+| H-L repeated (every 50 obs) | 5% | ~46% (10 looks) | 9x | Yes, with prior false alarms |
+| PITMonitor | 5% | ~3% (300 simulations) | 0.6x | Yes, no false alarms |
+
+The key finding is not just the FPR inflation — it is the false alarm pattern. Repeated H-L raises alarms throughout the stable phase, causing teams to investigate non-existent problems and ultimately to distrust the monitoring system. PITMonitor's e-process stays near zero when the model is calibrated and rises sharply only when calibration genuinely shifts.
+
+The benchmark also shows changepoint estimation: when PITMonitor fires, the Bayes factor scan over the evidence history recovers the true drift onset (t~500) within ±30 steps on typical runs.
+
+**When to use:** Any deployed model checked on a recurring schedule — monthly renewals, weekly batch processing, or per-policy online monitoring. The formal guarantee holds regardless of checking frequency.
+
+### InterpretableDriftDetector vs DriftAttributor
+
+Benchmarked on a 5-feature Poisson pricing model with drift planted in exactly two features (vehicle_age and area). Reference: 10,000 policies; monitoring: 5,000 policies with mixed policy terms (50% short-term). Full script: `benchmarks/benchmark_interpretable_drift.py`.
+
+| Check | DriftAttributor | InterpretableDriftDetector (BH) |
+|-------|----------------|--------------------------------|
+| vehicle_age flagged | Yes | Yes |
+| area flagged | Yes | Yes |
+| False positives | 0 | 0 |
+| Attribution correct | Yes | Yes |
+| Exposure weighting | No | Yes |
+| Loss function | MSE | Poisson deviance |
+| Error control | Bonferroni | Benjamini-Hochberg |
+
+Both modules correctly identify the two drifted features on this scenario. The differences become material at larger feature counts and with mixed portfolio terms.
+
+With d=10 rating factors, Bonferroni gives effective per-test alpha=0.005. BH gives per-test alpha=0.01 for the rank-1 feature — materially more power on the features most likely to be drifting. At d=20, the power difference is substantial enough that the correct choice is almost always FDR control.
+
+Exposure weighting changes the result when monitoring has different policy-term composition than the reference. In this benchmark, the monitoring cohort is 50% short-term policies versus 30% in the reference. Unweighted analysis assigns too much weight to short-tenure policies and mis-estimates the population-level drift magnitude.
+
+**When to use `InterpretableDriftDetector`:** Quarterly model reviews needing a defensible governance artefact — which features drifted, with what statistical confidence, and under what error control. Use `error_control='fdr'` when d >= 5.
+
+**When to use `DriftAttributor`:** Automated monitoring pipelines where drift detection triggers an immediate action (retrain, alert). The simpler API is more appropriate for that workflow.
 
 
 ## Related Libraries
