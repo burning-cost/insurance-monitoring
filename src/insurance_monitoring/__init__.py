@@ -8,6 +8,11 @@ drift
 drift_attribution
     DriftAttributor (TRIPODD): feature-interaction-aware drift attribution with
     Type I error control. Identifies which features explain model performance drift.
+interpretable_drift
+    InterpretableDriftDetector: upgraded TRIPODD implementation with exposure
+    weighting, FDR control, single-loop bootstrap, cached subset risks, and
+    Poisson deviance loss. The right choice for high-d feature sets or when
+    earned exposure weighting is required.
 calibration
     A/E ratio, Hosmer-Lemeshow, and the full calibration suite:
     balance property test, auto-calibration, Murphy decomposition, rectification.
@@ -29,9 +34,28 @@ Quick start
     from insurance_monitoring import MonitoringReport
     from insurance_monitoring.drift import psi
     from insurance_monitoring.drift_attribution import DriftAttributor
+    from insurance_monitoring.interpretable_drift import InterpretableDriftDetector
     from insurance_monitoring.calibration import ae_ratio, check_balance, CalibrationChecker
     from insurance_monitoring.discrimination import gini_coefficient, GiniDriftBootstrapTest
     from insurance_monitoring.sequential import SequentialTest
+
+v0.7.0 changes (in progress)
+-----------------------------
+- ``InterpretableDriftDetector`` and ``InterpretableDriftResult`` added. Seven
+  improvements over ``DriftAttributor``:
+
+  - Exposure weighting via ``weights`` parameter (correct for mixed policy terms).
+  - Benjamini-Hochberg FDR control alongside Bonferroni. Use ``error_control='fdr'``
+    for d >= 10 rating factors where Bonferroni is too conservative.
+  - Single bootstrap loop: thresholds and p-values in one pass, halving cost
+    versus the two-loop design in DriftAttributor.
+  - Subset risk caching at fit_reference(): reference-side model calls saved
+    across all subsequent test() calls.
+  - Polars-native API: accepts pl.DataFrame and pl.Series directly.
+  - Poisson deviance loss: canonical GLM goodness-of-fit for frequency models.
+  - Explicit update_reference(): no auto-retrain on drift detection.
+
+  ``DriftAttributor`` is unchanged — both classes coexist.
 
 v0.6.0 changes
 --------------
@@ -145,6 +169,10 @@ from insurance_monitoring.drift_attribution import (
     DriftAttributor,
     DriftAttributionResult,
 )
+from insurance_monitoring.interpretable_drift import (
+    InterpretableDriftDetector,
+    InterpretableDriftResult,
+)
 from insurance_monitoring.report import MonitoringReport
 from insurance_monitoring.sequential import (
     SequentialTest,
@@ -169,6 +197,9 @@ __all__ = [
     # drift attribution (TRIPODD)
     "DriftAttributor",
     "DriftAttributionResult",
+    # interpretable drift detection (TRIPODD+)
+    "InterpretableDriftDetector",
+    "InterpretableDriftResult",
     # calibration — A/E monitoring
     "ae_ratio",
     "ae_ratio_ci",
