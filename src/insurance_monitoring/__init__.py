@@ -51,18 +51,8 @@ v0.7.0 changes
   Guarantee: P(ever alarm | model calibrated) <= alpha, for all t, forever.
   Solves the repeated-testing inflation in monthly H-L / A/E monitoring.
 
-  New features vs. existing CalibrationChecker:
-
-  - Sequential: processes one observation at a time, suitable for live deployment
-  - Anytime-valid: no correction needed for repeated checks
-  - Changepoint estimation: identifies when calibration degraded (Bayes factor scan)
-  - Warm-start: pre-load historical PITs to avoid cold-start sensitivity loss
-  - Exposure weighting: integer-repetition weighting preserves formal guarantee
-
   New dependency: ``sortedcontainers>=2.4`` (pure Python, zero transitive deps).
 
-v0.7.0 changes (in progress)
------------------------------
 - ``InterpretableDriftDetector`` and ``InterpretableDriftResult`` added. Seven
   improvements over ``DriftAttributor``:
 
@@ -262,6 +252,10 @@ __all__ = [
     "SequentialTest",
     "SequentialTestResult",
     "sequential_test_from_df",
+    # sequential calibration monitoring (v0.7.0)
+    "PITMonitor",
+    "PITAlarm",
+    "PITSummary",
     # thresholds
     "MonitoringThresholds",
     "PSIThresholds",

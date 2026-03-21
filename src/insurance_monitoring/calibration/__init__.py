@@ -103,11 +103,7 @@ from insurance_monitoring.calibration._plots import (
 # ------------------------------------------------------------------
 # Sequential calibration monitoring (v0.7.0)
 # ------------------------------------------------------------------
-from insurance_monitoring.calibration._pit import (
-    PITMonitor,
-    PITAlarm,
-    PITSummary,
-)
+from insurance_monitoring.calibration._pit import PITMonitor, PITAlarm, PITSummary
 
 __all__ = [
     # A/E monitoring
