@@ -252,10 +252,6 @@ __all__ = [
     "SequentialTest",
     "SequentialTestResult",
     "sequential_test_from_df",
-    # sequential calibration monitoring (v0.7.0)
-    "PITMonitor",
-    "PITAlarm",
-    "PITSummary",
     # thresholds
     "MonitoringThresholds",
     "PSIThresholds",
