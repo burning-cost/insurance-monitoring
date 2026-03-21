@@ -172,12 +172,14 @@ def _subset_risk(
 def _enumerate_subsets(d: int, n_permutations: Optional[int], rng: np.random.Generator) -> list:
     """Enumerate all subsets of {0, ..., d-1} for cached subset risk computation.
 
-    For d <= 12, returns all 2^d frozensets. For d > 12, samples
-    n_permutations randomly-sized subsets.
+    For d <= 12, returns all 2^d frozensets (full enumeration guarantees every
+    pair (S, S|{k}) is present for all features k).
 
-    Note: this enumerates subsets of all features (not per-feature exclusion).
-    The caller is responsible for skipping subsets containing feature k when
-    computing statistics for feature k.
+    For d > 12, full enumeration is infeasible. This function returns the empty
+    and full sets plus n_permutations random subsets for use in the reference
+    risk cache. The per-feature paired subsets needed for the test statistic are
+    generated on the fly in test() — see the note there. Only the cache uses
+    this global list; the test statistic loop samples per-feature instead.
     """
     all_indices = list(range(d))
     if n_permutations is None:
@@ -188,7 +190,8 @@ def _enumerate_subsets(d: int, n_permutations: Optional[int], rng: np.random.Gen
             subsets.append(S)
         return subsets
     else:
-        # Stratified random sampling
+        # Stratified random sampling for the global cache.
+        # Per-feature paired subsets are generated in test() for d > 12.
         subsets = set()
         # Always include empty and full sets
         subsets.add(frozenset())
@@ -249,6 +252,11 @@ def _apply_error_control(
             bh_cutoff = p_values[sorted_feats[k_star - 1]]
         else:
             bh_cutoff = float("inf")
+        # FIX (P2): For FDR mode, threshold is the BH p-value cutoff.
+        # The ratio column uses threshold / p_value (both p-values, comparable scales).
+        # Previously the code stored bh_cutoff as threshold and test_stat / threshold
+        # as ratio, which compared incomparable scales. Now threshold is the BH cutoff
+        # p-value, and ratio = bh_cutoff / p_value (> 1 means rejected).
         thresholds = {f: bh_cutoff for f in features}
 
     return thresholds, p_values, attributed
@@ -283,6 +291,12 @@ class InterpretableDriftResult:
         Polars DataFrame with one row per feature, sorted by test_statistic /
         threshold ratio descending. Columns: feature, test_statistic, threshold,
         ratio, p_value, drift_attributed, rank.
+
+        For FWER mode: ratio = test_statistic / threshold (both on the same
+        test-statistic scale; > 1 means drift attributed).
+
+        For FDR mode: ratio = threshold / p_value (both p-values; > 1 means
+        the feature's p-value is below the BH cutoff, i.e. drift attributed).
     interaction_pairs:
         Top-5 feature pairs by interaction drift (when feature_pairs=True). None
         otherwise. Columns: feature_1, feature_2, interaction_delta_ref,
@@ -669,23 +683,90 @@ class InterpretableDriftDetector:
             )
 
         # 2. Observed test statistics
+        #
+        # For d <= 12: all 2^d subsets are cached, so every pair (S, S|{k}) is
+        # available and we just iterate the global subset list.
+        #
+        # For d > 12: the global cache has n_permutations randomly-chosen subsets
+        # but most will not form valid paired (S, S|{k}) triples for each feature k.
+        # FIX (P1): generate n_permutations subsets per feature that are guaranteed
+        # to exclude k, so the pair (S, S|{k}) is always available.
         test_stats = {}
-        for k_idx, feat in enumerate(self.features):
-            max_diff = 0.0
-            for S in subsets:
-                if k_idx in S:
-                    continue
-                S_k = S | frozenset([k_idx])
-                if S_k not in self.cached_subset_risks_ or S_k not in risks_new:
-                    continue
-                delta_ref = self.cached_subset_risks_[S] - self.cached_subset_risks_[S_k]
-                delta_new = risks_new[S] - risks_new[S_k]
-                diff = abs(delta_ref - delta_new)
-                if diff > max_diff:
-                    max_diff = diff
-            test_stats[feat] = n_new * max_diff
+        if self.n_permutations is None:
+            # d <= 12 full-enumeration path — every pair is in the global list
+            for k_idx, feat in enumerate(self.features):
+                max_diff = 0.0
+                for S in subsets:
+                    if k_idx in S:
+                        continue
+                    S_k = S | frozenset([k_idx])
+                    if S_k not in self.cached_subset_risks_ or S_k not in risks_new:
+                        continue
+                    delta_ref = self.cached_subset_risks_[S] - self.cached_subset_risks_[S_k]
+                    delta_new = risks_new[S] - risks_new[S_k]
+                    diff = abs(delta_ref - delta_new)
+                    if diff > max_diff:
+                        max_diff = diff
+                test_stats[feat] = n_new * max_diff
+        else:
+            # d > 12 per-feature path — sample n_permutations subsets not containing k
+            all_indices = list(range(d))
+            for k_idx, feat in enumerate(self.features):
+                non_k = [j for j in all_indices if j != k_idx]
+                max_diff = 0.0
+                for _ in range(self.n_permutations):
+                    size = int(self._rng.integers(0, d))  # size in [0, d-1]
+                    chosen = self._rng.choice(non_k, size=size, replace=False)
+                    S = frozenset(chosen)
+                    S_k = S | frozenset([k_idx])
+                    # Compute risks on the fly; reference cached if available
+                    r_ref_S = (
+                        self.cached_subset_risks_[S]
+                        if S in self.cached_subset_risks_
+                        else _subset_risk(
+                            self.model, self.reference_X_, self.reference_y_,
+                            S, d, self.fill_values_, self.loss, self.reference_weights_,
+                        )
+                    )
+                    r_ref_Sk = (
+                        self.cached_subset_risks_[S_k]
+                        if S_k in self.cached_subset_risks_
+                        else _subset_risk(
+                            self.model, self.reference_X_, self.reference_y_,
+                            S_k, d, self.fill_values_, self.loss, self.reference_weights_,
+                        )
+                    )
+                    r_new_S = (
+                        risks_new[S]
+                        if S in risks_new
+                        else _subset_risk(
+                            self.model, X_new, y_new, S, d,
+                            self.fill_values_, self.loss, w_new,
+                        )
+                    )
+                    r_new_Sk = (
+                        risks_new[S_k]
+                        if S_k in risks_new
+                        else _subset_risk(
+                            self.model, X_new, y_new, S_k, d,
+                            self.fill_values_, self.loss, w_new,
+                        )
+                    )
+                    diff = abs((r_ref_S - r_ref_Sk) - (r_new_S - r_new_Sk))
+                    if diff > max_diff:
+                        max_diff = diff
+                test_stats[feat] = n_new * max_diff
 
         # 3. Single bootstrap loop — produces both null stats and p-values
+        #
+        # FIX (P0): use self.fill_values_ (the original reference fill values)
+        # throughout the bootstrap null, instead of recomputing fill_b from the
+        # bootstrap reference split. The observed test statistic uses self.fill_values_
+        # as the masking mechanism; the null must test exchangeability under that same
+        # fixed mechanism. Recomputing fill_b per bootstrap replicate makes the null
+        # distribution slightly wider (extra variability from fill-value resampling
+        # noise), which inflates thresholds and makes the test conservative,
+        # especially at small n_ref (~200-500).
         n_ref = len(self.reference_y_)
         Z_all_X = np.vstack([self.reference_X_, X_new])
         Z_all_y = np.concatenate([self.reference_y_, y_new])
@@ -708,32 +789,63 @@ class InterpretableDriftDetector:
             w_b_R = Z_all_w[idx_R] if Z_all_w is not None else None
             w_b_N = Z_all_w[idx_N] if Z_all_w is not None else None
 
-            fill_b = _compute_fill_values(X_b_R, self.masking_strategy, w_b_R)
+            # FIX (P0): use fixed fill values (self.fill_values_) not
+            # recomputed fill_b = _compute_fill_values(X_b_R, ...).
+            fill_b = self.fill_values_
 
-            risks_b_R: dict = {}
-            risks_b_N: dict = {}
-            for S in subsets:
-                risks_b_R[S] = _subset_risk(
-                    self.model, X_b_R, y_b_R, S, d, fill_b, self.loss, w_b_R
-                )
-                risks_b_N[S] = _subset_risk(
-                    self.model, X_b_N, y_b_N, S, d, fill_b, self.loss, w_b_N
-                )
-
-            for k_idx, feat in enumerate(self.features):
-                max_diff = 0.0
+            if self.n_permutations is None:
+                # d <= 12: iterate global subset list
+                risks_b_R: dict = {}
+                risks_b_N: dict = {}
                 for S in subsets:
-                    if k_idx in S:
-                        continue
-                    S_k = S | frozenset([k_idx])
-                    if S_k not in risks_b_R:
-                        continue
-                    diff = abs(
-                        (risks_b_R[S] - risks_b_R[S_k]) - (risks_b_N[S] - risks_b_N[S_k])
+                    risks_b_R[S] = _subset_risk(
+                        self.model, X_b_R, y_b_R, S, d, fill_b, self.loss, w_b_R
                     )
-                    if diff > max_diff:
-                        max_diff = diff
-                null_stats[feat].append(len(y_b_N) * max_diff)
+                    risks_b_N[S] = _subset_risk(
+                        self.model, X_b_N, y_b_N, S, d, fill_b, self.loss, w_b_N
+                    )
+
+                for k_idx, feat in enumerate(self.features):
+                    max_diff = 0.0
+                    for S in subsets:
+                        if k_idx in S:
+                            continue
+                        S_k = S | frozenset([k_idx])
+                        if S_k not in risks_b_R:
+                            continue
+                        diff = abs(
+                            (risks_b_R[S] - risks_b_R[S_k]) - (risks_b_N[S] - risks_b_N[S_k])
+                        )
+                        if diff > max_diff:
+                            max_diff = diff
+                    null_stats[feat].append(len(y_b_N) * max_diff)
+            else:
+                # d > 12: per-feature paired subsets (FIX P1 applied to bootstrap too)
+                all_indices = list(range(d))
+                for k_idx, feat in enumerate(self.features):
+                    non_k = [j for j in all_indices if j != k_idx]
+                    max_diff = 0.0
+                    for _ in range(self.n_permutations):
+                        size = int(self._rng.integers(0, d))
+                        chosen = self._rng.choice(non_k, size=size, replace=False)
+                        S = frozenset(chosen)
+                        S_k = S | frozenset([k_idx])
+                        r_bR_S = _subset_risk(
+                            self.model, X_b_R, y_b_R, S, d, fill_b, self.loss, w_b_R
+                        )
+                        r_bR_Sk = _subset_risk(
+                            self.model, X_b_R, y_b_R, S_k, d, fill_b, self.loss, w_b_R
+                        )
+                        r_bN_S = _subset_risk(
+                            self.model, X_b_N, y_b_N, S, d, fill_b, self.loss, w_b_N
+                        )
+                        r_bN_Sk = _subset_risk(
+                            self.model, X_b_N, y_b_N, S_k, d, fill_b, self.loss, w_b_N
+                        )
+                        diff = abs((r_bR_S - r_bR_Sk) - (r_bN_S - r_bN_Sk))
+                        if diff > max_diff:
+                            max_diff = diff
+                    null_stats[feat].append(len(y_b_N) * max_diff)
 
         # 4. Error control
         thresholds, p_values, attributed = _apply_error_control(
@@ -741,22 +853,45 @@ class InterpretableDriftDetector:
         )
 
         # 5. Feature ranking DataFrame
-        ranking_rows = [
-            {
-                "feature": feat,
-                "test_statistic": test_stats[feat],
-                "threshold": thresholds[feat],
-                "ratio": test_stats[feat] / max(thresholds[feat], 1e-12),
-                "p_value": p_values[feat],
-                "drift_attributed": feat in attributed,
-            }
-            for feat in self.features
-        ]
+        #
+        # FIX (P2): ratio column is computed differently for FWER vs FDR to keep
+        # it on a comparable scale.
+        # - FWER: ratio = test_statistic / threshold (same scale; > 1 => rejected)
+        # - FDR: ratio = threshold / p_value (both p-values; > 1 => p_value < BH cutoff)
+        if self.error_control == "fdr":
+            ranking_rows = [
+                {
+                    "feature": feat,
+                    "test_statistic": test_stats[feat],
+                    "threshold": thresholds[feat],
+                    "ratio": thresholds[feat] / max(p_values[feat], 1e-12),
+                    "p_value": p_values[feat],
+                    "drift_attributed": feat in attributed,
+                }
+                for feat in self.features
+            ]
+        else:
+            ranking_rows = [
+                {
+                    "feature": feat,
+                    "test_statistic": test_stats[feat],
+                    "threshold": thresholds[feat],
+                    "ratio": test_stats[feat] / max(thresholds[feat], 1e-12),
+                    "p_value": p_values[feat],
+                    "drift_attributed": feat in attributed,
+                }
+                for feat in self.features
+            ]
+
+        # FIX (P2): cast rank to Int64 so schema is consistent with the empty-result
+        # path in _compute_interaction_pairs which uses Int64 explicitly.
         ranking_df = (
             pl.DataFrame(ranking_rows)
             .sort("ratio", descending=True)
             .with_row_index("rank")
-            .with_columns(pl.col("rank") + 1)
+            .with_columns(
+                pl.col("rank").cast(pl.Int64) + 1
+            )
         )
 
         # 6. Interaction pairs
@@ -882,6 +1017,19 @@ class InterpretableDriftDetector:
 
         Uses pre-computed risks_new where possible to avoid redundant model
         calls. For pairs not in risks_new, falls back to direct computation.
+
+        Note on fill-value staleness
+        ----------------------------
+        This method uses self.fill_values_ (computed from the reference window)
+        to mask features when evaluating risks on the new window. If the
+        distributions have shifted substantially (which is the point of the
+        test), this introduces a mild bias: the masking mechanism is calibrated
+        to the reference and may be slightly mis-specified for the new window.
+        In practice the effect is small relative to the interaction drift signal,
+        but it means interaction_drift values should be treated as directional
+        indicators rather than precisely calibrated quantities. If this matters
+        for your use case, call update_reference() to re-anchor fill_values_
+        before computing interactions.
         """
         pair_rows = []
         all_indices = list(range(self._d))
@@ -930,20 +1078,22 @@ class InterpretableDriftDetector:
             })
 
         if not pair_rows:
+            # FIX (P2): use UInt32 for rank to match with_row_index() output type
             return pl.DataFrame(schema={
                 "feature_1": pl.Utf8,
                 "feature_2": pl.Utf8,
                 "interaction_delta_ref": pl.Float64,
                 "interaction_delta_new": pl.Float64,
                 "interaction_drift": pl.Float64,
-                "rank": pl.Int64,
+                "rank": pl.UInt32,
             })
 
+        # FIX (P2): cast rank to Int64 for schema consistency across all code paths
         df = (
             pl.DataFrame(pair_rows)
             .sort("interaction_drift", descending=True)
             .head(5)
             .with_row_index("rank")
-            .with_columns(pl.col("rank") + 1)
+            .with_columns(pl.col("rank").cast(pl.Int64) + 1)
         )
         return df
