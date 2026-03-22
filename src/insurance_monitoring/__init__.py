@@ -202,7 +202,12 @@ from insurance_monitoring.thresholds import (
     PSIThresholds,
 )
 
-__version__ = "0.7.1"
+from importlib.metadata import version, PackageNotFoundError
+
+try:
+    __version__ = version("insurance-monitoring")
+except PackageNotFoundError:
+    __version__ = "0.0.0"  # not installed
 
 __all__ = [
     # drift
