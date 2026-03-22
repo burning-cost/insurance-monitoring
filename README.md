@@ -54,6 +54,8 @@ The two layers serve the same person — the pricing actuary — at different po
 
 ```bash
 uv add insurance-monitoring
+# or
+pip install insurance-monitoring
 ```
 
 ## Quick example
