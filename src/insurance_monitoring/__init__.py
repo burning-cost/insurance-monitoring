@@ -25,6 +25,7 @@ report
 sequential
     Anytime-valid A/B testing for champion/challenger experiments using mSPRT
     (Johari et al. 2022). Valid type I error control at every interim check.
+    Supports Poisson frequency, log-normal severity, and compound loss ratio tests.
 thresholds
     Configurable threshold defaults (PSI, A/E, Gini).
 
@@ -41,6 +42,17 @@ Quick start
     from insurance_monitoring.sequential import SequentialTest
     from insurance_monitoring import PITMonitor
 
+v0.8.0 changes
+--------------
+- ``sequential`` module completed with full test coverage. All 10 test cases from
+  the spec now pass: type I error control (Monte Carlo n=500), power check,
+  batching idempotency, confidence sequence coverage, loss ratio e-value
+  multiplication, Bayesian posterior bounds, and null behaviour.
+- ``notebooks/sequential_testing.ipynb`` added: Databricks-ready demo showing
+  the complete mSPRT workflow on synthetic motor book data with 35k champion /
+  15k challenger policies, monthly updates, and early stopping.
+- No new dependencies. numpy, scipy, polars remain the only maths stack.
+
 v0.7.0 changes
 --------------
 - ``PITMonitor``, ``PITAlarm``, ``PITSummary`` added to
@@ -50,8 +62,6 @@ v0.7.0 changes
 
   Guarantee: P(ever alarm | model calibrated) <= alpha, for all t, forever.
   Solves the repeated-testing inflation in monthly H-L / A/E monitoring.
-
-  New dependency: ``sortedcontainers>=2.4`` (pure Python, zero transitive deps).
 
 - ``InterpretableDriftDetector`` and ``InterpretableDriftResult`` added. Seven
   improvements over ``DriftAttributor``:
@@ -253,7 +263,7 @@ __all__ = [
     "lorenz_curve",
     # report
     "MonitoringReport",
-    # sequential A/B testing
+    # sequential A/B testing (v0.5.0+, tests completed v0.8.0)
     "SequentialTest",
     "SequentialTestResult",
     "sequential_test_from_df",
