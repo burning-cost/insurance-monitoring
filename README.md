@@ -1,6 +1,7 @@
 # insurance-monitoring
 
 [![PyPI](https://img.shields.io/pypi/v/insurance-monitoring)](https://pypi.org/project/insurance-monitoring/)
+[![Downloads](https://img.shields.io/pypi/dm/insurance-monitoring)](https://pypi.org/project/insurance-monitoring/)
 [![Python](https://img.shields.io/pypi/pyversions/insurance-monitoring)](https://pypi.org/project/insurance-monitoring/)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-green)]()
