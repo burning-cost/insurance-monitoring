@@ -60,6 +60,8 @@ uv add insurance-monitoring
 
 This example uses named rating factors — which is how actuaries actually work with this data.
 
+> **Runtime note**: this example uses 10,000 reference / 4,000 monitoring policies and runs in under 40 seconds locally. The Gini bootstrap (200 replicates, required for the drift z-test) is the dominant cost at scale; at 50k/15k it takes 3–5 minutes. Use the 10k/4k size for local exploration; run the full scale on Databricks.
+
 ```python
 import polars as pl
 import numpy as np
@@ -67,13 +69,13 @@ from insurance_monitoring import MonitoringReport
 
 rng = np.random.default_rng(42)
 
-# Reference period: training window
-n_ref = 50_000
+# Reference period: training window (use 10k/4k for local runs; scale up on Databricks)
+n_ref = 10_000
 pred_ref = rng.uniform(0.05, 0.20, n_ref)
 act_ref = rng.poisson(pred_ref).astype(float)
 
 # Current monitoring period: 18 months into deployment
-n_cur = 15_000
+n_cur = 4_000
 pred_cur = rng.uniform(0.05, 0.20, n_cur)
 act_cur = rng.poisson(pred_cur * 1.08).astype(float)  # model underpredicted: actuals 8% above predictions (A/E ≈ 1.08)
 
@@ -121,9 +123,9 @@ import numpy as np
 from insurance_monitoring import MonitoringReport
 
 rng = np.random.default_rng(42)
-pred_ref = rng.uniform(0.05, 0.20, 50_000)
+pred_ref = rng.uniform(0.05, 0.20, 10_000)
 act_ref = rng.poisson(pred_ref).astype(float)
-pred_cur = rng.uniform(0.05, 0.20, 15_000)
+pred_cur = rng.uniform(0.05, 0.20, 4_000)
 act_cur = rng.poisson(pred_cur * 1.08).astype(float)
 
 report = MonitoringReport(
