@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.8.2 (2026-03-23)
+- fix: suppress RuntimeWarning in `poisson_deviance` when y=0 — `np.where` evaluates both branches before masking, so `log(0)` and `log(0/mu)` were computed (and warned about) on every real dataset with zero-claim observations. Wrapped in `np.errstate(divide='ignore', invalid='ignore')`. The mathematical result is unchanged; the 0*log(0)=0 convention was already correct.
+
 ## v0.7.0
 
 `PITMonitor`, `PITAlarm`, and `PITSummary` added to `insurance_monitoring.calibration`.
