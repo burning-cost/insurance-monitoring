@@ -694,3 +694,7 @@ Exposure weighting changes the result when monitoring has different policy-term 
 ## Licence
 
 MIT
+
+---
+
+Need help implementing this? [See our consulting services](https://burning-cost.github.io/work-with-us/).
