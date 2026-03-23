@@ -15,32 +15,13 @@ Deployed insurance pricing models go stale. The portfolio ages, the claims envir
 
 The central problem with aggregate A/E is that errors cancel at portfolio level. The model may be 15% cheap on young drivers and 15% expensive on mature drivers; the aggregate reads 1.00 and nobody raises an alarm. This library monitors the features, not just the headline number.
 
-## Why bother
+## Why use this?
 
-Benchmarked on synthetic UK motor data — 50,000 training policies (2019–2021), monitored against a 2023 portfolio with known induced shifts: young drivers (under 25) oversampled 2x, high-risk areas (E and F) oversampled 50%, conviction points shifted upward for 20% of policies.
-
-> **Note on benchmark sizes**: the table below uses the 50,000/15,000 policy scenario. The detailed Performance section further down uses a smaller scenario (10,000 reference / 4,000 monitoring) for a faster local run. Both use the same DGP; the smaller run is provided for reproducibility without Databricks.
-
-| Monitoring check | Manual A/E check | MonitoringReport (PSI/CSI) | Notes |
-|------------------|------------------|----------------------------|-------|
-| Aggregate A/E — shifted data | Computed | Same value | Both agree; neither alone is sufficient |
-| driver_age distributional shift | Not detected | PSI RED (>0.25) | 2x young driver oversampling |
-| area distributional shift | Not detected | PSI AMBER/RED | High-risk area overweighting |
-| conviction_points shift | Not detected | PSI AMBER | 20% of policies shifted +1 point |
-| Gini drift (ref vs shifted) | Not computed | Computed with bootstrap CI | Tests whether ranking has degraded |
-| Structured audit trail | No | Yes (traffic-light report) | Suitable for inclusion in PRA SS3/17 (insurer model risk) documentation (see note below) |
-
-The manual A/E check is blind to who is inside the portfolio. PSI per feature catches segment-level drift that cancels at portfolio level. The Gini drift z-test tells you whether the model's ranking has degraded — the difference between a cheap recalibration and a full refit.
-
-> **Note on regulatory scope:** PRA SS3/17 (Supervisory Statement 3/17) is the primary model risk management standard for UK insurers under Solvency II. PRA SS1/23 covers model risk management for banks and building societies — not insurers. For insurers, the directly applicable references are SS3/17 and the FCA Consumer Duty outcome monitoring obligations. The structured audit trail this library produces is appropriate for inclusion in model risk documentation under SS3/17 or equivalent internal model governance frameworks.
-
-▶ [Run on Databricks](https://github.com/burning-cost/burning-cost-examples/blob/main/notebooks/monitoring_drift_detection.py)
-
----
-
-**Read more:** [Your Pricing Model is Drifting (and You Probably Can't Tell)](https://burning-cost.github.io/2026/03/07/your-pricing-model-is-drifting.html) — why PSI alone is insufficient, and what it means when A/E is stable but the Gini is falling.
-
----
+- The aggregate A/E ratio is blind to who is inside the portfolio: a model that is 15% cheap on young drivers and 15% expensive on mature drivers reads 1.00 and raises no alarm. This library monitors features, not just the headline number.
+- Detects the three distinct failure modes separately — covariate shift (PSI per feature), calibration drift (A/E with Poisson CI and Murphy decomposition), and discrimination decay (Gini drift z-test from arXiv 2510.04556) — and issues a structured RECALIBRATE / REFIT / NO_ACTION recommendation in one call.
+- The Gini drift z-test is the distinguishing feature: it tells you whether the model's ranking has degraded, which is the difference between a cheap recalibration (hours) and a full refit (weeks). A standard A/E dashboard cannot answer this question.
+- Anytime-valid champion/challenger testing (mSPRT) lets you check results monthly without inflating type I error — a fixed-horizon t-test reaches ~25% FPR with monthly peeking; mSPRT holds at 5% at all stopping times.
+- Produces structured audit trails (traffic-light reports, feature-attributed drift, governance paragraphs) suitable for PRA SS3/17 model risk documentation.
 
 This library gives UK pricing teams two things in one install:
 
