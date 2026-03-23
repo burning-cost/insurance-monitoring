@@ -568,6 +568,24 @@ Demonstrated on synthetic UK motor data with three deliberately induced failure 
 
 A ready-to-run Databricks notebook benchmarking this library against standard approaches is available in [burning-cost-examples](https://github.com/burning-cost/burning-cost-examples/blob/main/notebooks/monitoring_drift_detection.py).
 
+## Limitations
+
+- **PSI and CSI do not explain why the distribution shifted.** PSI flags that a feature distribution has changed; it does not identify whether the change is due to portfolio mix evolution, data quality degradation, seasonality, or external risk environment shift. A PSI RED on driver_age requires subsequent investigation to determine the root cause. `InterpretableDriftDetector` attributes drift to specific features using model-loss contributions, but still requires domain judgement to distinguish benign mix change from genuine model-invalidating shift.
+
+- **The Gini drift test is underpowered below approximately 5,000–10,000 monitoring observations.** The test implements Theorem 1 from arXiv 2510.04556, which requires sufficient monitoring data to achieve acceptable power against a meaningful Gini drop (e.g. 3–5 percentage points). At n=4,000 monitoring policies, the test returns p=0.76 even against a 30% randomisation of predictions — correctly reporting insufficient power, not absence of drift. If your monitoring window is thin (quarterly book with <5,000 renewals), the Gini test should be treated as indicative only; the Murphy decomposition local MCB component is more sensitive at small n.
+
+- **The A/E ratio and CalibrationChecker are unreliable on immature accident periods.** For frequency models, calibration on accident periods less than 12 months old requires chain-ladder IBNR development factors first. For liability lines, 24+ months. The library applies no IBNR adjustment — it works on the numbers you provide. Calibrating on immature data will make the model appear over-predicting when it is not. The documentation notes this; users must apply development factors externally before passing actual to the monitoring functions.
+
+- **PITMonitor detects changes in calibration, not absolute miscalibration.** A model that was biased at launch and remains consistently biased throughout its life will not trigger PITMonitor — the e-process tests for *changes* in the PIT distribution, not for deviation from uniformity. A consistently biased model will have non-uniform PITs, but because the non-uniformity is stable, the e-process will not accumulate evidence. Use `CalibrationChecker` at model launch to catch pre-existing miscalibration; use `PITMonitor` only for post-launch change detection.
+
+- **The mSPRT SequentialTest requires a correctly specified prior tau.** The mixture e-process is calibrated to a prior on the effect size (log-rate-ratio) with standard deviation tau. If tau=0.03 is specified but the true effect of the challenger model is 15%, the test has materially lower power than an oracle that knew the effect size. Misspecification of tau does not break the type I error control — the anytime-valid guarantee holds regardless — but it can substantially slow detection. Set tau based on the smallest effect the team would consider commercially meaningful, not as a description of what you expect.
+
+- **InterpretableDriftDetector requires the original fitted model object.** Unlike PSI, which works on feature distributions alone, the `InterpretableDriftDetector` needs the model to compute loss contributions. If the model is not serialisable (e.g. a legacy bespoke implementation), or if governance prevents sharing the production model with the monitoring pipeline, the feature-attributed drift analysis is not available. In that case, fall back to `DriftAttributor` or PSI per feature.
+
+- **The REFIT vs RECALIBRATE decision framework is heuristic.** The recommendation logic (Murphy LMCB > GMCB implies REFIT; otherwise RECALIBRATE) is derived from the arXiv 2510.04556 framework, but the thresholds are operationally set. On some DGPs — particularly when both global and local miscalibration are present simultaneously — the framework may recommend RECALIBRATE when a full REFIT is warranted. The recommendation should be treated as a structured starting point for a model review conversation, not a decision that bypasses actuarial judgement.
+
+- **Polars-only output requires version compatibility.** The library targets Polars 0.20+. If your stack uses an older Polars version or requires pandas output for downstream tooling, `df.to_pandas()` on any output DataFrame is the conversion path. There is no native pandas output mode.
+
 ## Related Libraries
 
 | Library | Description |
