@@ -122,6 +122,20 @@ report = MonitoringReport(
 print(report.recommendation)
 ```
 
+## Expected Performance
+
+On a 50,000-policy reference portfolio and 15,000-policy monitoring period (UK motor, Poisson frequency) with three planted failure modes — covariate shift, calibration drift, and discrimination decay:
+
+- Aggregate A/E stays within the green band throughout the monitoring period; the covariate shift and calibration drift cancel at portfolio level, producing a false sense of security
+- PSI flags driver_age covariate shift RED within the first 1,000-1,500 policies — roughly one month into a 1,250-policy/month book — before any claims have emerged
+- MonitoringReport identifies all three failure modes; aggregate A/E detects at most one
+- Gini drift z-test is significant at 15,000 monitoring policies; underpowered at 4,000 (correctly reports insufficient evidence, not absence of drift)
+- Murphy LMCB > GMCB confirms the model's ranking is broken, distinguishing REFIT from RECALIBRATE
+
+The central operational argument: calibration drift that cancels at portfolio level is invisible to A/E monitoring for as long as errors balance across segments. PSI per feature measures the compositional shift directly, before claims arrive. The time-to-detection advantage is 8-10x in scenarios where offsetting segment errors keep aggregate A/E within tolerance.
+
+Run `uv run python benchmarks/run_benchmark.py` or import `notebooks/databricks_validation.py` into Databricks for the full comparison.
+
 ## Worked Example
 
 [`model_drift_monitoring.py`](https://github.com/burning-cost/burning-cost-examples/blob/main/examples/model_drift_monitoring.py) demonstrates the full monitoring stack on a synthetic motor book with three deliberately induced failure modes: covariate shift (older driver mix), calibration deterioration (segment-level A/E drift), and discriminatory power loss (Gini decay). It covers exposure-weighted PSI and CSI, segment A/E ratios with Poisson confidence intervals, the Gini drift z-test, and structured governance reporting suitable for inclusion in PRA SS3/17 model risk documentation.
