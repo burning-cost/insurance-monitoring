@@ -35,7 +35,12 @@ def poisson_deviance(
         Exposure-weighted mean deviance.
     """
     w = np.ones(len(y), dtype=np.float64) if exposure is None else np.asarray(exposure, dtype=np.float64)
-    log_term = np.where(y > 0, y * np.log(y / mu), 0.0)
+    # np.where evaluates both branches before selecting, so log(0) and log(0/mu)
+    # produce RuntimeWarnings even though those values are masked out by the y > 0
+    # condition. Suppress them here — the 0.0 fallback is mathematically correct
+    # (convention: 0 * log(0) = 0).
+    with np.errstate(divide="ignore", invalid="ignore"):
+        log_term = np.where(y > 0, y * np.log(y / mu), 0.0)
     unit_dev = 2.0 * (log_term - (y - mu))
     return float(np.sum(w * unit_dev) / np.sum(w))
 
