@@ -712,6 +712,10 @@ Exposure weighting changes the result when monitoring has different policy-term 
 **When to use `DriftAttributor`:** Automated monitoring pipelines where drift detection triggers an immediate action (retrain, alert). The simpler API is more appropriate for that workflow.
 
 
+## Training Course
+
+Want structured learning? [Insurance Pricing in Python](https://burning-cost.github.io/course) is a 12-module course covering the full pricing workflow. Module 12 covers model monitoring — PSI, A/E drift, Gini decay, and building a governance-ready monitoring pack. £97 one-time.
+
 ## Licence
 
 MIT
