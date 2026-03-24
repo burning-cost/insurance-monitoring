@@ -168,7 +168,7 @@ class MonitoringTracker:
     def _base_tags(self, metric_type: str) -> dict[str, str]:
         tags = {
             "monitoring.metric_type": metric_type,
-            "monitoring.timestamp": datetime.datetime.utcnow().isoformat(),
+            "monitoring.timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "monitoring.library_version": _LIB_VERSION,
             "monitoring.model_name": self.model_name,
         }
@@ -191,7 +191,7 @@ class MonitoringTracker:
         tags = self._base_tags(metric_type)
 
         if run_name is None:
-            ts = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
             run_name = f"{metric_type}_{ts}"
 
         with mlflow.start_run(
