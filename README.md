@@ -40,6 +40,9 @@ The two layers serve the same person — the pricing actuary — at different po
 uv add insurance-monitoring
 # or
 pip install insurance-monitoring
+
+# With MLflow integration
+pip install insurance-monitoring[mlflow]
 ```
 
 ## Quick example
@@ -544,6 +547,44 @@ fig.savefig("model_calibration_sign_off.pdf")
 ## Databricks integration
 
 The demo notebook at `notebooks/demo_monitoring.py` shows the full workflow on synthetic motor data and runs on Databricks serverless. Upload it to your workspace and schedule it as a monthly job against your MLflow inference table.
+
+## MLflow model registry integration
+
+If your team registers models in MLflow — the standard on Databricks — `MonitoringTracker` attaches monitoring results directly to the registered model version. Each monitoring run becomes an MLflow child run with metrics logged for time-series tracking and a JSON artifact for full audit detail.
+
+```python
+pip install insurance-monitoring[mlflow]
+```
+
+```python
+from insurance_monitoring.mlflow_tracker import MonitoringTracker
+from insurance_monitoring import ae_ratio, psi, gini_drift_test_onesample
+
+tracker = MonitoringTracker(
+    model_name="motor_freq_glm",
+    model_version="3",
+    tracking_uri="databricks",
+)
+
+# Log A/E ratios — one scalar or a dict of segments
+tracker.log_ae_ratios({"overall": 1.04, "young_drivers": 0.97, "fleet": 1.11})
+
+# Log PSI for key rating factors
+tracker.log_psi({"vehicle_age": 0.06, "ncb": 0.14, "region": 0.03})
+
+# Log Gini drift result (pass the typed result object directly)
+result = gini_drift_test_onesample(monitor_scores, training_gini=0.45)
+tracker.log_gini_drift(result)
+
+# Pull history back as a DataFrame for trend analysis
+history = tracker.get_monitoring_history(metric_type="ae_ratio")
+```
+
+Each `log_*` call creates a run under a `monitoring/<model_name>` experiment. Runs are tagged with `monitoring.metric_type`, `monitoring.model_version`, `monitoring.timestamp`, and `monitoring.library_version` so you can filter and compare across months in the MLflow UI.
+
+`get_monitoring_history()` queries past runs and returns a pandas DataFrame — one row per monitoring run, metric columns for each scalar logged. Useful for plotting trend lines in a governance report.
+
+MLflow is not a hard dependency. The rest of the library works fine without it. You'll get a clear error with install instructions if you try to use `MonitoringTracker` without mlflow installed.
 
 ## Background
 

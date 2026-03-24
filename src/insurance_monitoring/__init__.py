@@ -272,4 +272,18 @@ __all__ = [
     "PSIThresholds",
     "AERatioThresholds",
     "GiniDriftThresholds",
+    # MLflow integration (optional -- requires mlflow)
+    "MonitoringTracker",
 ]
+
+
+def __getattr__(name: str):
+    """Lazy import for optional-dependency modules.
+
+    MonitoringTracker requires mlflow. We don't import it at module load time
+    so that the rest of the library works without mlflow installed.
+    """
+    if name == "MonitoringTracker":
+        from insurance_monitoring.mlflow_tracker import MonitoringTracker
+        return MonitoringTracker
+    raise AttributeError(f"module 'insurance_monitoring' has no attribute {name!r}")
