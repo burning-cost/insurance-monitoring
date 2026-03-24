@@ -13,6 +13,10 @@
 
 A pricing model that is 15% cheap on young drivers and 15% expensive on mature drivers reads 1.00 at portfolio level and triggers no alarm — until the loss ratio deteriorates twelve months later. insurance-monitoring monitors per-feature distributions and model discrimination, not just the headline number, so you find the problem before it appears in the accounts.
 
+## Part of the Burning Cost stack
+
+Tracks models built with [insurance-gam](https://github.com/burning-cost/insurance-gam) or [insurance-causal](https://github.com/burning-cost/insurance-causal), deployed via [insurance-optimise](https://github.com/burning-cost/insurance-optimise). Feeds drift alerts and structured recommendations into [insurance-governance](https://github.com/burning-cost/insurance-governance) sign-off packs. → [See the full stack](https://burning-cost.github.io/stack/)
+
 ## Why use this?
 
 - The aggregate A/E ratio is blind to who is inside the portfolio: a model that is 15% cheap on young drivers and 15% expensive on mature drivers reads 1.00 and raises no alarm. This library monitors features, not just the headline number.
