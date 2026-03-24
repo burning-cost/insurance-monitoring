@@ -11,9 +11,7 @@
 
 **Your aggregate A/E ratio looks fine. Your model has been mispricing under-25s for eight months.**
 
-Deployed insurance pricing models go stale. The portfolio ages, the claims environment shifts, regulators change the rules. Without systematic monitoring you find out about it when the loss ratio deteriorates — typically 12 to 18 months after the model started misfiring.
-
-The central problem with aggregate A/E is that errors cancel at portfolio level. The model may be 15% cheap on young drivers and 15% expensive on mature drivers; the aggregate reads 1.00 and nobody raises an alarm. This library monitors the features, not just the headline number.
+A pricing model that is 15% cheap on young drivers and 15% expensive on mature drivers reads 1.00 at portfolio level and triggers no alarm — until the loss ratio deteriorates twelve months later. insurance-monitoring monitors per-feature distributions and model discrimination, not just the headline number, so you find the problem before it appears in the accounts.
 
 ## Why use this?
 
@@ -599,6 +597,15 @@ A ready-to-run Databricks notebook benchmarking this library against standard ap
 - **The REFIT vs RECALIBRATE decision framework is heuristic.** The recommendation logic (Murphy LMCB > GMCB implies REFIT; otherwise RECALIBRATE) is derived from the arXiv 2510.04556 framework, but the thresholds are operationally set. On some DGPs — particularly when both global and local miscalibration are present simultaneously — the framework may recommend RECALIBRATE when a full REFIT is warranted. The recommendation should be treated as a structured starting point for a model review conversation, not a decision that bypasses actuarial judgement.
 
 - **Polars-only output requires version compatibility.** The library targets Polars 0.20+. If your stack uses an older Polars version or requires pandas output for downstream tooling, `df.to_pandas()` on any output DataFrame is the conversion path. There is no native pandas output mode.
+
+## Limitations
+
+- The Gini drift z-test is underpowered at small monitoring cohort sizes. At 4,000 monitoring policies, a true Gini drop of −0.012 produces p ≈ 0.76 — not significant. The test becomes reliable at around 15,000 policies. On thin books, treat Gini monitoring as directional only and rely more heavily on Murphy decomposition.
+- A/E ratios are unreliable on immature accident years. Claims IBNR means monitoring on a recent accident year will produce artificially low actual claims, making the model appear over-reserved. Apply chain-ladder development factors before passing actuals to `ae_ratio()` for open periods.
+- `PITMonitor` detects calibration *changes*, not absolute miscalibration. A model consistently biased from deployment will not trigger the PITMonitor. Use `CalibrationChecker` at model launch; use `PITMonitor` once deployed to catch subsequent drift.
+- The recommendation framework uses fixed thresholds (PSI: 0.10/0.25; A/E: 0.95–1.05 green) derived from credit-scoring conventions. These may not be appropriate for all lines of business. Override via `MonitoringThresholds`.
+- `InterpretableDriftDetector` requires a model with a `.predict(X)` method returning predicted means. It does not work with models that return distributions, quantiles, or uncertainty intervals.
+
 
 ## Related Libraries
 
