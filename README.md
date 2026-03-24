@@ -716,6 +716,23 @@ Exposure weighting changes the result when monitoring has different policy-term 
 
 Want structured learning? [Insurance Pricing in Python](https://burning-cost.github.io/course) is a 12-module course covering the full pricing workflow. Module 12 covers model monitoring — PSI, A/E drift, Gini decay, and building a governance-ready monitoring pack. £97 one-time.
 
+## References
+
+1. Brauer, H. et al. (2025). "Model Monitoring: A General Framework with an Application to Non-life Insurance Pricing." [arXiv:2510.04556](https://arxiv.org/abs/2510.04556)
+
+2. Lindholm, M. & Wüthrich, M.V. (2025). "Three calibration properties for insurance pricing models." *Scandinavian Actuarial Journal*.
+
+3. Johari, R., Koomen, P., Pekelis, L. & Walsh, D. (2022). "Always Valid Inference: Continuous Monitoring of A/B Tests." *Operations Research*, 70(3). [arXiv:1512.04922](https://arxiv.org/abs/1512.04922)
+
+4. Henzi, A., Murph, M. & Ziegel, J.F. (2025). "Anytime valid change detection for calibration." [arXiv:2603.13156](https://arxiv.org/abs/2603.13156)
+
+5. Panda, B., Srinivas, R., Balasubramanian, V.N. & Sinha, A. (2025). "TRIPODD: Feature-Interaction-Aware Drift Detection with Type I Error Control." [arXiv:2503.06606](https://arxiv.org/abs/2503.06606)
+
+6. Benjamini, Y. & Hochberg, Y. (1995). "Controlling the False Discovery Rate: A Practical and Powerful Approach to Multiple Testing." *Journal of the Royal Statistical Society: Series B*, 57(1), 289-300.
+
+---
+
+
 ## Licence
 
 MIT
