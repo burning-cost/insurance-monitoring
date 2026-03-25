@@ -20,6 +20,10 @@ calibration
 discrimination
     Gini coefficient, Gini drift tests (arXiv 2510.04556), Lorenz curves,
     and GiniDriftBootstrapTest with percentile CIs and governance plot.
+gini_drift
+    GiniDriftTest: class-based two-sample asymptotic z-test for whether
+    ranking power has changed between reference and monitoring periods.
+    Requires raw data for both periods. Result in GiniDriftTestResult.
 business_value
     Loss Ratio Error (LRE) metric from Evans Hedges (2025), arXiv:2512.03242.
     Converts Pearson correlation rho into expected loss ratio impact. Use
@@ -46,6 +50,24 @@ Quick start
     from insurance_monitoring.sequential import SequentialTest
     from insurance_monitoring import PITMonitor
     from insurance_monitoring.business_value import lre_compare, loss_ratio_error
+
+v0.9.2 changes
+--------------
+- ``gini_drift`` module added. ``GiniDriftTest`` class: two-sample asymptotic z-test for
+  whether the Gini coefficient (ranking power) has changed between reference and monitoring
+  periods. Based on Wüthrich, Merz & Noll (2025), arXiv:2510.04556 Theorem 1 + Algorithm 2.
+
+  New public API:
+
+  - ``GiniDriftTest(reference_actual, reference_predicted, monitor_actual,
+    monitor_predicted, reference_exposure=None, monitor_exposure=None,
+    n_bootstrap=200, alpha=0.32, random_state=None)`` — class with lazy evaluation.
+  - ``.test()`` — returns ``GiniDriftTestResult`` with gini_reference, gini_monitor,
+    delta, z_statistic, p_value, significant, se_reference, se_monitor.
+  - ``.summary()`` — governance-ready plain-text report paragraph.
+  - ``GiniDriftTestResult`` — typed dataclass with dict-style access.
+
+  No new dependencies.
 
 v0.9.1 changes
 --------------
@@ -224,6 +246,10 @@ from insurance_monitoring.discrimination import (
     GiniDriftBootstrapTest,
     lorenz_curve,
 )
+from insurance_monitoring.gini_drift import (
+    GiniDriftTest,
+    GiniDriftTestResult,
+)
 from insurance_monitoring.drift import (
     csi,
     ks_test,
@@ -300,6 +326,9 @@ __all__ = [
     "GiniBootstrapResult",
     "GiniDriftBootstrapTest",
     "lorenz_curve",
+    # gini drift test class (v1.0.0)
+    "GiniDriftTest",
+    "GiniDriftTestResult",
     # business value / LRE (v0.9.1)
     "loss_ratio_error",
     "loss_ratio",

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "insurance-monitoring"
-version = "0.9.1"
+version = "0.9.2"
 description = "Model drift detection, monitoring, calibration, and sequential A/B testing for insurance pricing models. PSI, CSI, Gini drift, A/E ratios, balance property testing, Murphy decomposition, TRIPODD drift attribution, mSPRT champion/challenger, bootstrap Gini CIs, PITMonitor e-process calibration monitoring, LRE business value."
 readme = "README.md"
 license = "MIT"

@@ -1,5 +1,49 @@
 # Changelog
 
+## v0.9.2 (2026-03-25)
+
+`gini_drift` module added — `GiniDriftTest`: class-based two-sample asymptotic z-test
+for Gini coefficient drift (Wüthrich, Merz & Noll 2025, arXiv:2510.04556).
+
+Answers the question model validation teams need answered: has our model's ranking power
+changed between the reference period and the monitoring period? The test uses the asymptotic
+distribution of the Gini coefficient established in Theorem 1 of arXiv:2510.04556.
+Variance is estimated by non-parametric bootstrap (Algorithm 2) for both samples
+independently, then combined under the independence assumption.
+
+New API:
+
+```python
+from insurance_monitoring.gini_drift import GiniDriftTest
+# or: from insurance_monitoring import GiniDriftTest
+
+test = GiniDriftTest(
+    reference_actual=act_ref,
+    reference_predicted=pred_ref,
+    monitor_actual=act_mon,
+    monitor_predicted=pred_mon,
+    n_bootstrap=200,
+    alpha=0.32,  # one-sigma rule per arXiv:2510.04556
+    random_state=42,
+)
+result = test.test()
+print(f"Delta: {result.delta:+.4f}")
+print(f"z = {result.z_statistic:.2f}, p = {result.p_value:.4f}")
+print(f"Drift detected: {result.significant}")
+print(test.summary())
+```
+
+- `GiniDriftTest`: class-based wrapper with lazy evaluation, caching, exposure weighting
+- `GiniDriftTestResult`: typed dataclass with gini_reference, gini_monitor, delta,
+  z_statistic, p_value, significant, se_reference, se_monitor, n_reference, n_monitor.
+  Supports dict-style access for backward compatibility.
+- `summary()`: governance-ready plain-text report for model validation sign-off
+
+Design: independent bootstrap seeds for reference and monitor SE estimates.
+Large-sample cap (n > 20,000): variance estimated on subsample of 20k, point
+estimate uses full sample. No new dependencies.
+
+
 ## v0.9.1 (2026-03-25)
 
 `business_value` module added — Loss Ratio Error (LRE) metric from Evans Hedges (2025), arXiv:2512.03242.
