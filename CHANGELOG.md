@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.9.0 (2026-03-24)
+
+`MonitoringTracker` added — MLflow model registry integration.
+
+Attaches insurance-monitoring results to registered MLflow models. Each `log_*` call
+creates an MLflow run under a `monitoring/<model_name>` experiment, logging scalar
+metrics for time-series tracking and a JSON artifact for full audit detail.
+
+```python
+from insurance_monitoring.mlflow_tracker import MonitoringTracker
+
+tracker = MonitoringTracker("motor_freq_glm", model_version="3", tracking_uri="databricks")
+tracker.log_ae_ratios({"overall": 1.04, "young_drivers": 0.97})
+tracker.log_psi({"vehicle_age": 0.06, "ncb": 0.14})
+tracker.log_gini_drift(gini_result)
+
+history = tracker.get_monitoring_history()  # pandas DataFrame
+```
+
+MLflow is an optional dependency: `pip install insurance-monitoring[mlflow]`.
+The rest of the library is unaffected if mlflow is not installed.
+
 ## v0.8.2 (2026-03-23)
 - fix: suppress RuntimeWarning in `poisson_deviance` when y=0 — `np.where` evaluates both branches before masking, so `log(0)` and `log(0/mu)` were computed (and warned about) on every real dataset with zero-claim observations. Wrapped in `np.errstate(divide='ignore', invalid='ignore')`. The mathematical result is unchanged; the 0*log(0)=0 convention was already correct.
 

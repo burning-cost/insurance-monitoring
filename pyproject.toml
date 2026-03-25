@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "insurance-monitoring"
-version = "0.8.2"
+version = "0.9.0"
 description = "Model drift detection, monitoring, calibration, and sequential A/B testing for insurance pricing models. PSI, CSI, Gini drift, A/E ratios, balance property testing, Murphy decomposition, TRIPODD drift attribution, mSPRT champion/challenger, bootstrap Gini CIs, PITMonitor e-process calibration monitoring."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "Burning Cost", email = "pricing.frontier@gmail.com" }]
-keywords = ["insurance", "monitoring", "drift", "PSI", "Gini", "calibration", "murphy", "pricing", "actuarial", "TRIPODD", "sequential", "a/b testing", "champion challenger", "mSPRT", "PIT", "e-process", "anytime-valid"]
+keywords = ["insurance", "monitoring", "drift", "PSI", "Gini", "calibration", "murphy", "pricing", "actuarial", "TRIPODD", "sequential", "a/b testing", "champion challenger", "mSPRT", "PIT", "e-process", "anytime-valid", "mlflow"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Financial and Insurance Industry",
@@ -34,6 +34,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-cov", "pdoc>=14.0.0"]
+mlflow = ["mlflow>=2.0"]
 
 [project.urls]
 Homepage = "https://burning-cost.github.io/insurance-monitoring"

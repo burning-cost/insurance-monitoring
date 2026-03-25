@@ -13,6 +13,10 @@
 
 A pricing model that is 15% cheap on young drivers and 15% expensive on mature drivers reads 1.00 at portfolio level and triggers no alarm — until the loss ratio deteriorates twelve months later. insurance-monitoring monitors per-feature distributions and model discrimination, not just the headline number, so you find the problem before it appears in the accounts.
 
+## Part of the Burning Cost stack
+
+Tracks models built with [insurance-gam](https://github.com/burning-cost/insurance-gam) or [insurance-causal](https://github.com/burning-cost/insurance-causal), deployed via [insurance-optimise](https://github.com/burning-cost/insurance-optimise). Feeds drift alerts and structured recommendations into [insurance-governance](https://github.com/burning-cost/insurance-governance) sign-off packs. → [See the full stack](https://burning-cost.github.io/stack/)
+
 ## Why use this?
 
 - The aggregate A/E ratio is blind to who is inside the portfolio: a model that is 15% cheap on young drivers and 15% expensive on mature drivers reads 1.00 and raises no alarm. This library monitors features, not just the headline number.
@@ -36,6 +40,9 @@ The two layers serve the same person — the pricing actuary — at different po
 uv add insurance-monitoring
 # or
 pip install insurance-monitoring
+
+# With MLflow integration
+pip install insurance-monitoring[mlflow]
 ```
 
 ## Quick example
@@ -541,6 +548,44 @@ fig.savefig("model_calibration_sign_off.pdf")
 
 The demo notebook at `notebooks/demo_monitoring.py` shows the full workflow on synthetic motor data and runs on Databricks serverless. Upload it to your workspace and schedule it as a monthly job against your MLflow inference table.
 
+## MLflow model registry integration
+
+If your team registers models in MLflow — the standard on Databricks — `MonitoringTracker` attaches monitoring results directly to the registered model version. Each monitoring run becomes an MLflow child run with metrics logged for time-series tracking and a JSON artifact for full audit detail.
+
+```python
+pip install insurance-monitoring[mlflow]
+```
+
+```python
+from insurance_monitoring.mlflow_tracker import MonitoringTracker
+from insurance_monitoring import ae_ratio, psi, gini_drift_test_onesample
+
+tracker = MonitoringTracker(
+    model_name="motor_freq_glm",
+    model_version="3",
+    tracking_uri="databricks",
+)
+
+# Log A/E ratios — one scalar or a dict of segments
+tracker.log_ae_ratios({"overall": 1.04, "young_drivers": 0.97, "fleet": 1.11})
+
+# Log PSI for key rating factors
+tracker.log_psi({"vehicle_age": 0.06, "ncb": 0.14, "region": 0.03})
+
+# Log Gini drift result (pass the typed result object directly)
+result = gini_drift_test_onesample(monitor_scores, training_gini=0.45)
+tracker.log_gini_drift(result)
+
+# Pull history back as a DataFrame for trend analysis
+history = tracker.get_monitoring_history(metric_type="ae_ratio")
+```
+
+Each `log_*` call creates a run under a `monitoring/<model_name>` experiment. Runs are tagged with `monitoring.metric_type`, `monitoring.model_version`, `monitoring.timestamp`, and `monitoring.library_version` so you can filter and compare across months in the MLflow UI.
+
+`get_monitoring_history()` queries past runs and returns a pandas DataFrame — one row per monitoring run, metric columns for each scalar logged. Useful for plotting trend lines in a governance report.
+
+MLflow is not a hard dependency. The rest of the library works fine without it. You'll get a clear error with install instructions if you try to use `MonitoringTracker` without mlflow installed.
+
 ## Background
 
 The monitoring framework implements:
@@ -723,6 +768,23 @@ Want structured learning? [Insurance Pricing in Python](https://burning-cost.git
 - **Blog & tutorials:** [burning-cost.github.io](https://burning-cost.github.io)
 
 If this library saves you time, a star on GitHub helps others find it.
+
+## References
+
+1. Brauer, H. et al. (2025). "Model Monitoring: A General Framework with an Application to Non-life Insurance Pricing." [arXiv:2510.04556](https://arxiv.org/abs/2510.04556)
+
+2. Lindholm, M. & Wüthrich, M.V. (2025). "Three calibration properties for insurance pricing models." *Scandinavian Actuarial Journal*.
+
+3. Johari, R., Koomen, P., Pekelis, L. & Walsh, D. (2022). "Always Valid Inference: Continuous Monitoring of A/B Tests." *Operations Research*, 70(3). [arXiv:1512.04922](https://arxiv.org/abs/1512.04922)
+
+4. Henzi, A., Murph, M. & Ziegel, J.F. (2025). "Anytime valid change detection for calibration." [arXiv:2603.13156](https://arxiv.org/abs/2603.13156)
+
+5. Panda, B., Srinivas, R., Balasubramanian, V.N. & Sinha, A. (2025). "TRIPODD: Feature-Interaction-Aware Drift Detection with Type I Error Control." [arXiv:2503.06606](https://arxiv.org/abs/2503.06606)
+
+6. Benjamini, Y. & Hochberg, Y. (1995). "Controlling the False Discovery Rate: A Practical and Powerful Approach to Multiple Testing." *Journal of the Royal Statistical Society: Series B*, 57(1), 289-300.
+
+---
+
 
 ## Licence
 

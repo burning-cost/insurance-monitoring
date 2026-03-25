@@ -1,0 +1,82 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "insurance-monitoring"
+abstract: >
+  Model monitoring for deployed insurance pricing models. Detects covariate
+  shift (PSI/CSI), calibration drift (A/E with Poisson CI, Murphy decomposition),
+  and discrimination decay (Gini drift z-test). Provides anytime-valid
+  champion/challenger testing (mSPRT), PIT-based calibration change detection,
+  and feature-attributed drift with FDR control (TRIPODD). Produces structured
+  governance artefacts for PRA SS3/17 model risk documentation.
+authors:
+  - name: "Burning Cost Contributors"
+url: "https://github.com/burning-cost/insurance-monitoring"
+repository-code: "https://github.com/burning-cost/insurance-monitoring"
+license: MIT
+version: "0.8.2"
+date-released: "2026-03-23"
+keywords:
+  - insurance
+  - model monitoring
+  - model drift
+  - PSI
+  - actuarial
+references:
+  - type: article
+    title: "Model Monitoring: A General Framework with an Application to Non-life Insurance Pricing"
+    authors:
+      - family-names: Brauer
+        given-names: Henning
+    year: 2025
+    url: "https://arxiv.org/abs/2510.04556"
+  - type: article
+    title: "Three calibration properties for insurance pricing models"
+    authors:
+      - family-names: Lindholm
+        given-names: Mathias
+      - family-names: Wüthrich
+        given-names: Mario V.
+    journal: "Scandinavian Actuarial Journal"
+    year: 2025
+    doi: "10.1080/03461238.2025.2449133"
+  - type: article
+    title: "Always Valid Inference: Continuous Monitoring of A/B Tests"
+    authors:
+      - family-names: Johari
+        given-names: Ramesh
+      - family-names: Koomen
+        given-names: Pete
+      - family-names: Pekelis
+        given-names: Leonid
+      - family-names: Walsh
+        given-names: David
+    journal: "Operations Research"
+    volume: 70
+    issue: 3
+    year: 2022
+    doi: "10.1287/opre.2021.2135"
+  - type: article
+    title: "Anytime valid change detection for calibration"
+    authors:
+      - family-names: Henzi
+        given-names: Alexander
+      - family-names: Murph
+        given-names: Matthew
+      - family-names: Ziegel
+        given-names: Johanna F.
+    year: 2025
+    url: "https://arxiv.org/abs/2603.13156"
+  - type: article
+    title: "TRIPODD: Feature-Interaction-Aware Drift Detection with Type I Error Control"
+    authors:
+      - family-names: Panda
+        given-names: Biswajit
+      - family-names: Srinivas
+        given-names: Ramya
+      - family-names: Balasubramanian
+        given-names: Vineeth N.
+      - family-names: Sinha
+        given-names: Aaditya
+    year: 2025
+    url: "https://arxiv.org/abs/2503.06606"
