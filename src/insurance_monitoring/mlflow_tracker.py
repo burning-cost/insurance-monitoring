@@ -15,6 +15,10 @@ MLflow is an optional dependency. The rest of insurance-monitoring works fine
 without it. If you try to use MonitoringTracker without mlflow installed, you'll
 get a clear error telling you how to fix it.
 
+pandas is also an optional dependency. The module imports gracefully without it;
+pandas is only needed at runtime inside get_monitoring_history() (which calls
+mlflow.search_runs(), itself returning a pandas DataFrame).
+
 Usage
 -----
 ::
@@ -46,7 +50,13 @@ import tempfile
 from dataclasses import asdict, is_dataclass
 from typing import Any, Optional, Union
 
-import pandas as pd
+try:
+    import pandas as pd
+    _PANDAS_AVAILABLE = True
+except ImportError:
+    pd = None  # type: ignore[assignment]
+    _PANDAS_AVAILABLE = False
+
 import polars as pl
 
 from importlib.metadata import version, PackageNotFoundError
@@ -70,6 +80,15 @@ def _require_mlflow():
         ) from e
 
 
+def _require_pandas():
+    """Raise a clear error if pandas is not installed."""
+    if not _PANDAS_AVAILABLE:
+        raise ImportError(
+            "pandas is required for get_monitoring_history() but is not installed. "
+            "Install it with: pip install pandas"
+        )
+
+
 def _result_to_dict(result: Any) -> dict:
     """Convert a metric result object to a plain dict for JSON serialisation.
 
@@ -78,7 +97,7 @@ def _result_to_dict(result: Any) -> dict:
     - plain dicts
     - scalars (float/int from ae_ratio without segments)
     - polars DataFrames
-    - pandas DataFrames
+    - pandas DataFrames (only when pandas is installed)
     """
     if is_dataclass(result) and not isinstance(result, type):
         return asdict(result)
@@ -88,7 +107,7 @@ def _result_to_dict(result: Any) -> dict:
         return {"value": result}
     if isinstance(result, pl.DataFrame):
         return result.to_pandas().to_dict(orient="list")
-    if isinstance(result, pd.DataFrame):
+    if _PANDAS_AVAILABLE and isinstance(result, pd.DataFrame):
         return result.to_dict(orient="list")
     # Fallback: attempt dict-style access (GiniDriftResult supports this)
     try:
@@ -315,11 +334,14 @@ class MonitoringTracker:
     def get_monitoring_history(
         self,
         metric_type: Optional[str] = None,
-    ) -> pd.DataFrame:
+    ) -> Any:
         """Query past monitoring runs and return a summary DataFrame.
 
         Each row is one monitoring run. Columns include the run ID, start time,
         metric type, model version, and all scalar metrics logged.
+
+        Requires pandas to be installed (pandas is returned by
+        ``mlflow.search_runs()``).
 
         Args:
             metric_type: Filter to runs of a specific type (e.g. ``"ae_ratio"``,
@@ -327,10 +349,14 @@ class MonitoringTracker:
 
         Returns:
             pandas DataFrame with columns: ``run_id``, ``run_name``,
-            ``start_time``, ``metric_type``, ``model_version``, plus one
-            column per logged metric. Returns an empty DataFrame if no runs
+            ``start_time``, ``status``, ``metric_type``, ``model_version``, plus
+            one column per logged metric. Returns an empty DataFrame if no runs
             found.
+
+        Raises:
+            ImportError: If pandas is not installed.
         """
+        _require_pandas()
         mlflow = self._mlflow()
 
         if self._tracking_uri:
