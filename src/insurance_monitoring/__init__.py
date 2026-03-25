@@ -20,6 +20,10 @@ calibration
 discrimination
     Gini coefficient, Gini drift tests (arXiv 2510.04556), Lorenz curves,
     and GiniDriftBootstrapTest with percentile CIs and governance plot.
+business_value
+    Loss Ratio Error (LRE) metric from Evans Hedges (2025), arXiv:2512.03242.
+    Converts Pearson correlation rho into expected loss ratio impact. Use
+    lre_compare() to quantify the financial value of a model improvement.
 report
     MonitoringReport — combined check with traffic-light output.
 sequential
@@ -41,6 +45,34 @@ Quick start
     from insurance_monitoring.discrimination import gini_coefficient, GiniDriftBootstrapTest
     from insurance_monitoring.sequential import SequentialTest
     from insurance_monitoring import PITMonitor
+    from insurance_monitoring.business_value import lre_compare, loss_ratio_error
+
+v0.9.1 changes
+--------------
+- ``business_value`` module added. Implements the Loss Ratio Error (LRE) metric
+  from Evans Hedges (2025), arXiv:2512.03242.
+
+  New public API:
+
+  - ``loss_ratio_error(rho, cv, eta)`` — expected LR uplift above perfect-model
+    baseline (E_LR from Definition 2). Returns 0 for rho=1.
+  - ``loss_ratio(rho, cv, eta, margin=1.0)`` — expected portfolio loss ratio at
+    correlation rho (Theorem 1). Perfect model gives 1/margin.
+  - ``lre_compare(rho_old, rho_new, cv, eta, margin=1.0)`` — compare two models,
+    returning ``LREResult`` with lr_old, lr_new, delta_lr, delta_lr_bps, and
+    loss ratio errors for both. delta_lr_bps is the headline figure for business
+    cases: multiply by GWP to get annual financial impact.
+  - ``calibrate_eta(rho_observed, cv, lr_observed, margin=1.0)`` — reverse-solve
+    Theorem 1 to recover the implied demand elasticity from historical data.
+  - ``LREResult`` dataclass for structured output.
+
+  No new dependencies. scipy.optimize.brentq used for calibrate_eta.
+
+v0.9.0 changes
+--------------
+- ``MonitoringTracker`` added — MLflow model registry integration.
+  Attaches insurance-monitoring results to registered MLflow models.
+  MLflow is an optional dependency: ``pip install insurance-monitoring[mlflow]``.
 
 v0.8.0 changes
 --------------
@@ -153,6 +185,13 @@ v0.2.0 additions
   signals, reducing catastrophic misses).
 """
 
+from insurance_monitoring.business_value import (
+    loss_ratio_error,
+    loss_ratio,
+    lre_compare,
+    calibrate_eta,
+    LREResult,
+)
 from insurance_monitoring.calibration import (
     ae_ratio,
     ae_ratio_ci,
@@ -261,6 +300,12 @@ __all__ = [
     "GiniBootstrapResult",
     "GiniDriftBootstrapTest",
     "lorenz_curve",
+    # business value / LRE (v0.9.1)
+    "loss_ratio_error",
+    "loss_ratio",
+    "lre_compare",
+    "calibrate_eta",
+    "LREResult",
     # report
     "MonitoringReport",
     # sequential A/B testing (v0.5.0+, tests completed v0.8.0)

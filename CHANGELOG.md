@@ -1,5 +1,41 @@
 # Changelog
 
+## v0.9.1 (2026-03-25)
+
+`business_value` module added — Loss Ratio Error (LRE) metric from Evans Hedges (2025), arXiv:2512.03242.
+
+Converts Pearson correlation rho into expected portfolio loss ratio impact. Answers the
+question pricing teams actually care about: if we improve our model from rho=0.92 to
+rho=0.95, how many basis points of loss ratio improvement should we expect?
+
+New API:
+
+```python
+from insurance_monitoring.business_value import lre_compare, loss_ratio_error, loss_ratio, calibrate_eta
+
+# How much is a model improvement worth?
+result = lre_compare(rho_old=0.92, rho_new=0.95, cv=1.2, eta=1.5)
+print(f"Improvement: {result.delta_lr_bps:.1f} bps")
+# On a £100M book: £100M * abs(result.delta_lr) = annual value
+
+# What is the current model costing us?
+e_lr = loss_ratio_error(rho=0.92, cv=1.2, eta=1.5)
+print(f"Current model adds {e_lr * 10000:.0f} bps to our loss ratio vs perfect pricing")
+
+# Recover implied elasticity from historical observed LR
+eta_implied = calibrate_eta(rho_observed=0.91, cv=1.2, lr_observed=0.76, margin=1/0.70)
+```
+
+- `loss_ratio_error(rho, cv, eta)` — E_LR from Definition 2. Zero for perfect model.
+- `loss_ratio(rho, cv, eta, margin=1.0)` — Theorem 1 formula.
+- `lre_compare(rho_old, rho_new, cv, eta, margin=1.0)` — returns `LREResult` with
+  lr_old, lr_new, delta_lr, delta_lr_bps, e_lr_old, e_lr_new.
+- `calibrate_eta(rho_observed, cv, lr_observed, margin=1.0)` — brentq inversion of
+  Theorem 1 to recover implied demand elasticity. Returns None if unsolvable.
+- `LREResult` dataclass for structured output.
+
+No new dependencies. scipy.optimize.brentq (already a core dependency) used for calibrate_eta.
+
 ## v0.9.0 (2026-03-24)
 
 `MonitoringTracker` added — MLflow model registry integration.
