@@ -716,6 +716,14 @@ Exposure weighting changes the result when monitoring has different policy-term 
 
 Want structured learning? [Insurance Pricing in Python](https://burning-cost.github.io/course) is a 12-module course covering the full pricing workflow. Module 12 covers model monitoring — PSI, A/E drift, Gini decay, and building a governance-ready monitoring pack. £97 one-time.
 
+## Community
+
+- **Questions?** Start a [Discussion](https://github.com/burning-cost/insurance-monitoring/discussions)
+- **Found a bug?** Open an [Issue](https://github.com/burning-cost/insurance-monitoring/issues)
+- **Blog & tutorials:** [burning-cost.github.io](https://burning-cost.github.io)
+
+If this library saves you time, a star on GitHub helps others find it.
+
 ## Licence
 
 MIT
