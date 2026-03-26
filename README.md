@@ -106,6 +106,10 @@ df = report.to_polars()
 # recommendation      | nan    | RECALIBRATE
 ```
 
+---
+
+If this is useful, a ⭐ on GitHub helps others find it.
+
 If you just want to run a quick sanity check without feature data:
 
 ```python
