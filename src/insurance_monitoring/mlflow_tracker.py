@@ -76,7 +76,7 @@ def _require_mlflow():
         raise ImportError(
             "MLflow is required for MonitoringTracker but is not installed. "
             "Install it with: pip install insurance-monitoring[mlflow]\n"
-            "Or directly: pip install mlflow>=2.0"
+            "Or directly: pip install mlflow>=3.0"
         ) from e
 
 
