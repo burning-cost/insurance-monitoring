@@ -40,7 +40,7 @@ mlflow = ["mlflow>=3.0", "pyarrow>=14.0"]
 Homepage = "https://burning-cost.github.io/insurance-monitoring"
 Repository = "https://github.com/burning-cost/insurance-monitoring"
 Changelog = "https://github.com/burning-cost/insurance-monitoring/releases"
-Documentation = "https://burning-cost.github.io/insurance-monitoring/"
+Documentation = "https://burning-cost.github.io/insurance-monitoring"
 Issues = "https://github.com/burning-cost/insurance-monitoring/issues"
 
 [tool.hatch.build.targets.wheel]
