@@ -10,6 +10,8 @@
 
 Models drift. Regulators notice.
 
+**Blog post:** [Insurance Model Monitoring: Beyond Generic Drift Detection](https://burning-cost.github.io/2026/03/21/insurance-model-monitoring-beyond-generic-drift/)
+
 A pricing model that is 15% cheap on young drivers and 15% expensive on mature drivers reads 1.00 at portfolio level — and triggers no alarm. The loss ratio deteriorates twelve months later. By then, the PRA expects regulated insurers to have model risk management frameworks (and SS1/23, while primarily aimed at banks, is widely adopted as the de facto standard for insurers too) — and the framework should have caught this first. insurance-monitoring detects per-feature distribution shifts and model discrimination drift, not just the headline A/E ratio, so you find the problem before it reaches the accounts or the supervisor.
 
 ---
@@ -67,21 +69,6 @@ See `examples/quickstart.py` for a fully self-contained example with feature dri
 
 ---
 
-## Features
-
-- **PSI / CSI** — Population Stability Index and Characteristic Stability Index across all rating factors; exposure-weighted; traffic-light bands aligned with PRA SS1/23 model risk expectations
-- **A/E ratio with confidence interval** — Wilson CI, exposure-weighted, RAG status; the primary calibration metric for UK pricing teams
-- **Gini drift test** — two-sample and one-sample bootstrap designs (arXiv 2510.04556); percentile CI; governance plot suitable for model validation packs
-- **Decision tree** (`MonitoringReport.recommendation`) — NO_ACTION / MONITOR_CLOSELY / RECALIBRATE / REFIT / INVESTIGATE; Murphy decomposition sharpens the RECALIBRATE vs REFIT distinction
-- **Murphy decomposition** — decomposes scoring loss into uncertainty, discrimination (DSC), and miscalibration (MCB); when DSC falls, REFIT; when MCB dominates, RECALIBRATE
-- **Anytime-valid calibration monitoring** (`PITMonitor`) — probability integral transform e-processes (Henzi, Murph, Ziegel 2025); valid type I error control at every monthly check, forever; solves repeated-testing inflation
-- **Sequential A/B testing** (`SequentialTest`) — mixture SPRT (Johari et al. 2022); supports Poisson frequency, log-normal severity, and compound loss ratio; no pre-specified sample size
-- **TRIPODD drift attribution** (`DriftAttributor`, `InterpretableDriftDetector`) — feature-interaction-aware; identifies which factors explain model performance degradation; Bonferroni or Benjamini-Hochberg FDR control; exposure weighting; Poisson deviance loss
-- **MLflow integration** (`MonitoringTracker`) — logs all metrics and bands to an MLflow run; requires `mlflow` (optional dependency)
-- **Polars-native throughout** — no pandas required; flat `to_polars()` output writes directly to Delta tables on Databricks
-
----
-
 ## Installation
 
 ```bash
@@ -100,6 +87,18 @@ pip install insurance-monitoring mlflow
 
 ---
 
+## Features
+
+- **PSI / CSI** — Population Stability Index and Characteristic Stability Index across all rating factors; exposure-weighted; traffic-light bands aligned with PRA SS1/23 model risk expectations
+- **A/E ratio with confidence interval** — Wilson CI, exposure-weighted, RAG status; the primary calibration metric for UK pricing teams
+- **Gini drift test** — two-sample and one-sample bootstrap designs (arXiv 2510.04556); percentile CI; governance plot suitable for model validation packs
+- **Decision tree** (`MonitoringReport.recommendation`) — NO_ACTION / MONITOR_CLOSELY / RECALIBRATE / REFIT / INVESTIGATE; Murphy decomposition sharpens the RECALIBRATE vs REFIT distinction
+- **Murphy decomposition** — decomposes scoring loss into uncertainty, discrimination (DSC), and miscalibration (MCB); when DSC falls, REFIT; when MCB dominates, RECALIBRATE
+- **Anytime-valid calibration monitoring** (`PITMonitor`) — probability integral transform e-processes (Henzi, Murph, Ziegel 2025); valid type I error control at every monthly check, forever; solves repeated-testing inflation
+- **Sequential A/B testing** (`SequentialTest`) — mixture SPRT (Johari et al. 2022); supports Poisson frequency, log-normal severity, and compound loss ratio; no pre-specified sample size
+- **TRIPODD drift attribution** (`DriftAttributor`, `InterpretableDriftDetector`) — feature-interaction-aware; identifies which factors explain model performance degradation; Bonferroni or Benjamini-Hochberg FDR control; exposure weighting; Poisson deviance loss
+- **MLflow integration** (`MonitoringTracker`) — logs all metrics and bands to an MLflow run; requires `mlflow` (optional dependency)
+- **Polars-native throughout** — no pandas required; flat `to_polars()` output writes directly to Delta tables on Databricks
 ## Modules
 
 ### `MonitoringReport`
@@ -296,16 +295,6 @@ On a 50,000-policy synthetic UK motor portfolio:
 | `InterpretableDriftDetector` (10 features) | 30–90s | FDR-controlled bootstrap |
 
 [Run the full workflow on Databricks](https://github.com/burning-cost/insurance-monitoring/blob/main/notebooks/quickstart.ipynb)
-
----
-
-## Installation
-
-```bash
-pip install insurance-monitoring
-# or
-uv add insurance-monitoring
-```
 
 ---
 
