@@ -8,11 +8,9 @@
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/burning-cost/burning-cost-examples/blob/main/notebooks/burning-cost-in-30-minutes.ipynb)
 [![nbviewer](https://img.shields.io/badge/render-nbviewer-orange)](https://nbviewer.org/github/burning-cost/insurance-monitoring/blob/main/notebooks/quickstart.ipynb)
 
-> Questions or feedback? Start a [Discussion](https://github.com/burning-cost/insurance-monitoring/discussions). Found it useful? A star helps others find it.
-
 Models drift. Regulators notice.
 
-A pricing model that is 15% cheap on young drivers and 15% expensive on mature drivers reads 1.00 at portfolio level — and triggers no alarm. The loss ratio deteriorates twelve months later. By then, the PRA (SS1/23) expects you to have had a monitoring framework that would have caught it. insurance-monitoring detects per-feature distribution shifts and model discrimination drift, not just the headline A/E ratio, so you find the problem before it reaches the accounts or the supervisor.
+A pricing model that is 15% cheap on young drivers and 15% expensive on mature drivers reads 1.00 at portfolio level — and triggers no alarm. The loss ratio deteriorates twelve months later. By then, the PRA expects regulated insurers to have model risk management frameworks (and SS1/23, while primarily aimed at banks, is widely adopted as the de facto standard for insurers too) — and the framework should have caught this first. insurance-monitoring detects per-feature distribution shifts and model discrimination drift, not just the headline A/E ratio, so you find the problem before it reaches the accounts or the supervisor.
 
 ---
 
@@ -321,5 +319,7 @@ uv add insurance-monitoring
 | [insurance-gam](https://github.com/burning-cost/insurance-gam) | Interpretable GLM-style models whose factors can be monitored directly |
 
 ---
+
+> Questions or feedback? Start a [Discussion](https://github.com/burning-cost/insurance-monitoring/discussions). Found it useful? A star helps others find it.
 
 **Need help implementing this in production?** [Talk to us](https://burning-cost.github.io/work-with-us/).
