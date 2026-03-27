@@ -121,7 +121,7 @@ class MulticalibCell:
             "AE_ratio": self.AE_ratio,
             "relative_bias": self.relative_bias,
             "z_stat": self.z_stat,
-            "alert": self.alert,
+            "alert": bool(self.alert),
         }
 
 
@@ -618,8 +618,10 @@ def _exposure_weighted_quantile_edges(
 def _assign_bins(y_pred: np.ndarray, edges: np.ndarray) -> np.ndarray:
     """Assign each prediction to a bin index using frozen edges.
 
-    Uses np.searchsorted on the interior edges (edges[1:-1]) so that
-    bin 0 corresponds to edges[0] <= y_pred < edges[1], etc.
+    Uses np.searchsorted with side='right' on the interior edges (edges[1:-1])
+    so that values exactly at a boundary go to the upper bin.
+    bin 0 corresponds to edges[0] <= y_pred <= edges[1], with boundary values
+    assigned to the higher-indexed bin.
 
     Parameters
     ----------
@@ -637,7 +639,7 @@ def _assign_bins(y_pred: np.ndarray, edges: np.ndarray) -> np.ndarray:
     interior = edges[1:-1]
     # searchsorted gives the index in interior where y_pred would be inserted.
     # This maps directly to bin index (0-based).
-    bins = np.searchsorted(interior, y_pred, side="left")
+    bins = np.searchsorted(interior, y_pred, side="right")
     return bins
 
 

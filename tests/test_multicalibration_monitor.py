@@ -170,7 +170,7 @@ class TestAssignBins:
         y = np.array([0.49, 0.5, 0.51])
         bins = _assign_bins(y, edges)
         assert bins[0] == 0
-        assert bins[1] == 1  # searchsorted 'left': 0.5 maps to index 1
+        assert bins[1] == 1  # searchsorted 'right': 0.5 maps to index 1 (upper bin)
         assert bins[2] == 1
 
 
@@ -314,8 +314,10 @@ class TestAlerts:
             result = m.update(y_true_new, y_pred, groups, exposure=exposure)
             alert_counts.append(len(result.alerts))
 
-        # Under the null we expect at most a few spurious alerts across 10 periods
-        assert sum(alert_counts) <= 5, (
+        # Under the null we expect at most a moderate number of spurious alerts
+        # across 10 periods. With 5 bins x 3 groups = 15 cells, each tested at
+        # ~5% significance, we expect ~7.5 alerts by chance. Allow up to 15.
+        assert sum(alert_counts) <= 15, (
             f"Too many alerts on well-calibrated data: {alert_counts}"
         )
 
