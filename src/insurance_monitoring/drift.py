@@ -266,7 +266,7 @@ def csi(
         band = thresholds.classify(csi_value)
         rows.append({"feature": feature, "csi": csi_value, "band": band})
 
-    return pl.DataFrame(rows, schema={"feature": pl.Utf8, "csi": pl.Float64, "band": pl.Utf8})
+    return pl.DataFrame(rows, schema={"feature": pl.String, "csi": pl.Float64, "band": pl.String})
 
 
 def ks_test(

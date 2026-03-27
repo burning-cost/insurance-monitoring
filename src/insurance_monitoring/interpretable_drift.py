@@ -1080,8 +1080,8 @@ class InterpretableDriftDetector:
         if not pair_rows:
             # FIX (P2): use UInt32 for rank to match with_row_index() output type
             return pl.DataFrame(schema={
-                "feature_1": pl.Utf8,
-                "feature_2": pl.Utf8,
+                "feature_1": pl.String,
+                "feature_2": pl.String,
                 "interaction_delta_ref": pl.Float64,
                 "interaction_delta_new": pl.Float64,
                 "interaction_drift": pl.Float64,

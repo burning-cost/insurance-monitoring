@@ -470,5 +470,5 @@ class MonitoringReport:
 
         return pl.DataFrame(
             rows,
-            schema={"metric": pl.Utf8, "value": pl.Float64, "band": pl.Utf8},
+            schema={"metric": pl.String, "value": pl.Float64, "band": pl.String},
         )

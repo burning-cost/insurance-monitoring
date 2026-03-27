@@ -153,7 +153,7 @@ def ae_ratio(
     return pl.DataFrame(
         rows,
         schema={
-            "segment": pl.Utf8,
+            "segment": pl.String,
             "actual": pl.Float64,
             "expected": pl.Float64,
             "ae_ratio": pl.Float64,
