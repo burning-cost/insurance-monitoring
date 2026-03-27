@@ -8,33 +8,29 @@
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/burning-cost/burning-cost-examples/blob/main/notebooks/burning-cost-in-30-minutes.ipynb)
 [![nbviewer](https://img.shields.io/badge/render-nbviewer-orange)](https://nbviewer.org/github/burning-cost/insurance-monitoring/blob/main/notebooks/quickstart.ipynb)
 
-Models drift. Regulators notice.
+**Production model monitoring for UK insurance pricing — PSI, Gini drift, Murphy decomposition, and anytime-valid A/B testing in one package.**
 
-**Blog post:** [Insurance Model Monitoring: Beyond Generic Drift Detection](https://burning-cost.github.io/2026/03/21/insurance-model-monitoring-beyond-generic-drift/)
+---
 
-A pricing model that is 15% cheap on young drivers and 15% expensive on mature drivers reads 1.00 at portfolio level — and triggers no alarm. The loss ratio deteriorates twelve months later. By then, the PRA expects regulated insurers to have model risk management frameworks (and SS1/23, while primarily aimed at banks, is widely adopted as the de facto standard for insurers too) — and the framework should have caught this first. insurance-monitoring detects per-feature distribution shifts and model discrimination drift, not just the headline A/E ratio, so you find the problem before it reaches the accounts or the supervisor.
+## The problem
+
+A pricing model that is 15% cheap on young drivers and 15% expensive on mature drivers reads 1.00 at portfolio level — and triggers no alarm. The loss ratio deteriorates twelve months later.
+
+The PRA expects regulated insurers to have model risk management frameworks (SS1/23, while primarily aimed at banks, is widely adopted as the de facto standard for insurers) — and that framework should have caught this first. Standard monitoring approaches fail in three specific ways:
+
+- **Portfolio-level A/E hides segmental drift.** Per-feature distribution shifts and model discrimination drift are invisible to a single headline ratio.
+- **Repeated monthly testing inflates false positives.** Running Hosmer-Lemeshow or A/E tests each month means a perfectly calibrated model will trigger a false alarm roughly 40% of the time within a year at α=0.05.
+- **Champion/challenger comparisons are run to a pre-specified date.** Checking interim results is statistically invalid under classical hypothesis testing — but pricing teams do it anyway.
+
+`insurance-monitoring` addresses all three. It monitors per-feature distribution shifts (PSI/CSI), discrimination and calibration separately (Murphy decomposition), and runs anytime-valid tests you can check at any point.
 
 ---
 
 ## Part of the Burning Cost stack
 
-Takes the outputs of any fitted pricing model and a stream of actual experience. Feeds drift signals and calibration verdicts into [insurance-governance](https://github.com/burning-cost/insurance-governance) for model risk committee packs. Pairs with [insurance-fairness](https://github.com/burning-cost/insurance-fairness) to monitor per-protected-group A/E ratios under Consumer Duty. → [See the full stack](https://burning-cost.github.io/stack/)
+Takes the outputs of any fitted pricing model and a stream of actual experience. Feeds drift signals and calibration verdicts into [insurance-governance](https://github.com/burning-cost/insurance-governance) for model risk committee packs. Pairs with [insurance-fairness](https://github.com/burning-cost/insurance-fairness) to monitor per-protected-group A/E ratios under Consumer Duty. See the [full stack](https://burning-cost.github.io/stack/).
 
----
-
-## Manual monitoring vs insurance-monitoring
-
-| Task | Manual approach | insurance-monitoring |
-|------|----------------|----------------------|
-| Population Stability Index | Excel macro per factor, re-coded each quarter, unweighted | `psi()` / `csi()` — exposure-weighted, Polars-native, traffic-light band |
-| Feature drift heatmap | Engineer writes one-off script; no standard thresholds | `csi()` — one call, all rating factors, PRA-aligned thresholds |
-| A/E ratio with CI | Custom formula in SQL, no confidence interval | `ae_ratio_ci()` — Wilson CI, exposure-weighted, RAG status |
-| Discrimination drift | Gini computed ad hoc; no test for statistical significance | `gini_drift_test()` / `GiniDriftBootstrapTest` — arXiv 2510.04556 bootstrap CI, governance plot |
-| RECALIBRATE vs REFIT decision | Actuary judgment call, not documented | `MonitoringReport.recommendation` — arXiv 2510.04556 decision tree, Murphy decomposition sharpens it |
-| Repeated monthly testing inflation | H-L / A/E tested afresh each month; inflated false-positive rate | `PITMonitor` — anytime-valid, P(ever false alarm | calibrated) ≤ α, forever |
-| Champion/challenger A/B test | Wait for pre-specified sample size; cannot stop early | `SequentialTest` — mSPRT, valid at every interim check, supports frequency/severity/loss ratio |
-| Drift attribution (which feature explains the performance change?) | PSI-by-eye; no interaction-aware method | `DriftAttributor` / `InterpretableDriftDetector` — TRIPODD, FDR control, exposure weighting |
-| Monitoring report for model risk committee | Manual Word document | `MonitoringReport.to_polars()` — flat DataFrame, writes directly to Delta table |
+**Blog post:** [Insurance Model Monitoring: Beyond Generic Drift Detection](https://burning-cost.github.io/2026/03/21/insurance-model-monitoring-beyond-generic-drift/)
 
 ---
 
@@ -47,13 +43,12 @@ from insurance_monitoring import MonitoringReport
 from insurance_monitoring.drift import psi
 
 rng = np.random.default_rng(42)
-# Training period
+# Training period — well-calibrated model
 actual_ref = rng.poisson(0.08, 10_000).astype(float)
 predicted_ref = np.full(10_000, 0.08)
-exposure_ref = rng.uniform(0.5, 1.0, 10_000)
-# Current period — model has drifted
-actual_cur = rng.poisson(0.11, 5_000).astype(float)   # loss rate up
-predicted_cur = np.full(5_000, 0.08)                   # model unchanged
+# Current period — book has aged, model is stale
+actual_cur = rng.poisson(0.11, 5_000).astype(float)
+predicted_cur = np.full(5_000, 0.08)
 exposure_cur = rng.uniform(0.5, 1.0, 5_000)
 
 report = MonitoringReport(
@@ -61,11 +56,11 @@ report = MonitoringReport(
     current_actual=actual_cur, current_predicted=predicted_cur,
     exposure=exposure_cur, murphy_distribution="poisson",
 )
-print(report.recommendation)          # => 'RECALIBRATE' or 'REFIT'
-print(report.to_polars())             # flat DataFrame: metric / value / band
+print(report.recommendation)   # => 'RECALIBRATE' or 'REFIT'
+print(report.to_polars())      # flat DataFrame: metric / value / band
 ```
 
-See `examples/quickstart.py` for a fully self-contained example with feature drift and CSI.
+See `examples/` for fully worked scenarios: UK motor frequency monitoring, home insurance with PITMonitor, and a champion/challenger A/B test.
 
 ---
 
@@ -82,28 +77,30 @@ uv add insurance-monitoring
 MLflow integration (optional):
 
 ```bash
-pip install insurance-monitoring mlflow
+pip install insurance-monitoring[mlflow]
 ```
+
+---
+
+## What manual monitoring looks like vs this
+
+| Task | Manual approach | insurance-monitoring |
+|------|----------------|----------------------|
+| Population Stability Index | Excel macro per factor, re-coded each quarter, unweighted | `psi()` / `csi()` — exposure-weighted, Polars-native, traffic-light band |
+| Feature drift heatmap | Engineer writes one-off script; no standard thresholds | `csi()` — one call, all rating factors, PRA-aligned thresholds |
+| A/E ratio with CI | Custom formula in SQL, no confidence interval | `ae_ratio_ci()` — Wilson CI, exposure-weighted, RAG status |
+| Discrimination drift | Gini computed ad hoc; no test for statistical significance | `gini_drift_test()` / `GiniDriftBootstrapTest` — bootstrap CI, governance plot |
+| RECALIBRATE vs REFIT decision | Actuary judgment call, not documented | `MonitoringReport.recommendation` — decision tree, Murphy decomposition sharpens it |
+| Repeated monthly testing inflation | H-L / A/E tested afresh each month; inflated false-positive rate | `PITMonitor` — anytime-valid, P(ever false alarm \| calibrated) ≤ α, forever |
+| Champion/challenger A/B test | Wait for pre-specified sample size; cannot stop early | `SequentialTest` — mSPRT, valid at every interim check, supports frequency/severity/loss ratio |
+| Drift attribution (which feature explains the performance change?) | PSI-by-eye; no interaction-aware method | `DriftAttributor` / `InterpretableDriftDetector` — TRIPODD, FDR control, exposure weighting |
+| Monitoring report for model risk committee | Manual Word document | `MonitoringReport.to_polars()` — flat DataFrame, writes directly to Delta table |
 
 ---
 
 ## Features
 
-- **PSI / CSI** — Population Stability Index and Characteristic Stability Index across all rating factors; exposure-weighted; traffic-light bands aligned with PRA SS1/23 model risk expectations
-- **A/E ratio with confidence interval** — Wilson CI, exposure-weighted, RAG status; the primary calibration metric for UK pricing teams
-- **Gini drift test** — two-sample and one-sample bootstrap designs (arXiv 2510.04556); percentile CI; governance plot suitable for model validation packs
-- **Decision tree** (`MonitoringReport.recommendation`) — NO_ACTION / MONITOR_CLOSELY / RECALIBRATE / REFIT / INVESTIGATE; Murphy decomposition sharpens the RECALIBRATE vs REFIT distinction
-- **Murphy decomposition** — decomposes scoring loss into uncertainty, discrimination (DSC), and miscalibration (MCB); when DSC falls, REFIT; when MCB dominates, RECALIBRATE
-- **Anytime-valid calibration monitoring** (`PITMonitor`) — probability integral transform e-processes (Henzi, Murph, Ziegel 2025); valid type I error control at every monthly check, forever; solves repeated-testing inflation
-- **Sequential A/B testing** (`SequentialTest`) — mixture SPRT (Johari et al. 2022); supports Poisson frequency, log-normal severity, and compound loss ratio; no pre-specified sample size
-- **TRIPODD drift attribution** (`DriftAttributor`, `InterpretableDriftDetector`) — feature-interaction-aware; identifies which factors explain model performance degradation; Bonferroni or Benjamini-Hochberg FDR control; exposure weighting; Poisson deviance loss
-- **MLflow integration** (`MonitoringTracker`) — logs all metrics and bands to an MLflow run; requires `mlflow` (optional dependency)
-- **Polars-native throughout** — no pandas required; flat `to_polars()` output writes directly to Delta tables on Databricks
-## Modules
-
-### `MonitoringReport`
-
-The single entry point for a complete monthly or quarterly monitoring run.
+### MonitoringReport — one call for a complete monitoring run
 
 ```python
 from insurance_monitoring import MonitoringReport
@@ -126,16 +123,16 @@ print(report.to_polars())      # flat DataFrame — write to Delta table
 ```
 
 Recommendation logic follows the three-stage decision tree from arXiv 2510.04556:
+
 - Gini OK + A/E OK → NO_ACTION
 - A/E bad only → RECALIBRATE (update intercept)
 - Gini bad → REFIT (rebuild on recent data)
 - Murphy decomposition present: overrides the heuristic when miscalibration vs discrimination are unambiguous
 
-### `drift` — PSI, CSI, KS, Wasserstein
+### PSI / CSI — feature distribution monitoring
 
 ```python
-from insurance_monitoring.drift import psi, csi, ks_test, wasserstein_distance
-import polars as pl
+from insurance_monitoring.drift import psi, csi
 
 # PSI on a single feature — exposure-weighted
 drift_val = psi(
@@ -158,16 +155,11 @@ print(csi_df)  # feature | csi | band
 
 Use PSI/CSI for operational dashboards. Use `ks_test` for formal hypothesis testing at quarter-end (note: over-sensitive at n > 500k). Use `wasserstein_distance` when communicating to non-technical stakeholders — it reports drift in original feature units.
 
-### `calibration` — A/E, balance, Murphy, rectification
+### Calibration — A/E, Murphy decomposition, anytime-valid PITMonitor
 
 ```python
-from insurance_monitoring import (
-    ae_ratio, ae_ratio_ci,
-    check_balance, check_auto_calibration,
-    murphy_decomposition,
-    rectify_balance, isotonic_recalibrate,
-    CalibrationChecker,
-)
+from insurance_monitoring import ae_ratio_ci, murphy_decomposition, PITMonitor
+from scipy.stats import poisson
 
 # A/E ratio with Wilson CI
 result = ae_ratio_ci(actual, predicted, exposure=exposure)
@@ -178,23 +170,27 @@ murphy = murphy_decomposition(y=actual, y_hat=predicted, exposure=exposure, dist
 print(f"DSC (discrimination score): {murphy.discrimination:.4f}")
 print(f"MCB (miscalibration):       {murphy.miscalibration:.4f}")
 print(f"Verdict: {murphy.verdict}")   # 'RECALIBRATE' or 'REFIT'
-
-# Full calibration audit in one call
-checker = CalibrationChecker(distribution="poisson")
-report = checker.check(actual, predicted, exposure=exposure)
 ```
 
-### `discrimination` — Gini drift
+**PITMonitor** — the standard pattern of running A/E tests monthly inflates the false-positive rate. After twelve months at α=0.05, the chance of a false alarm exceeds 40% even on a perfectly calibrated model. `PITMonitor` uses probability integral transform e-processes (Henzi, Murph, Ziegel 2025); the guarantee is P(ever raise an alarm | model calibrated) ≤ α, for all t, forever.
 
 ```python
-from insurance_monitoring import (
-    gini_coefficient,
-    gini_drift_test_onesample,
-    GiniDriftBootstrapTest,
-)
+monitor = PITMonitor(alpha=0.05)
+for row in live_data:
+    mu = row.exposure * row.lambda_hat
+    pit = float(poisson.cdf(row.claims, mu))
+    alarm = monitor.update(pit)
+    if alarm.triggered:
+        print(f"Calibration alarm: evidence = {alarm.evidence:.2f}")
+        break
+```
 
-# One-sample design: tests monitor data against a stored training Gini scalar
-# (more natural for deployed model monitoring — reference data may not be available)
+### Discrimination — Gini drift test
+
+```python
+from insurance_monitoring import gini_drift_test_onesample, GiniDriftBootstrapTest
+
+# One-sample design: reference data not required — just the stored training Gini
 result = gini_drift_test_onesample(
     training_gini=0.42,
     monitor_actual=current_claims,
@@ -203,53 +199,22 @@ result = gini_drift_test_onesample(
 )
 print(f"Gini change: {result.gini_change:+.3f}  p={result.p_value:.3f}  [{result.significant}]")
 
-# Class-based API with governance plot
-bt = GiniDriftBootstrapTest(
-    training_gini=0.42,
-    monitor_actual=current_claims,
-    monitor_predicted=current_predicted,
-    monitor_exposure=current_exposure,
-    n_bootstrap=500,
-)
-bt_result = bt.test()
-print(bt.summary())      # governance-ready paragraph (method on the test class, not the result)
-bt.plot()                # bootstrap histogram with CI shading — IFoA/PRA deliverable
+# Class-based API with governance plot (IFoA/PRA deliverable)
+bt = GiniDriftBootstrapTest(training_gini=0.42, monitor_actual=current_claims,
+                             monitor_predicted=current_predicted, monitor_exposure=current_exposure)
+bt.test()
+bt.plot()       # bootstrap histogram with CI shading
+bt.summary()    # governance-ready paragraph
 ```
 
-### `calibration.PITMonitor` — anytime-valid calibration monitoring (v0.7.0)
+### Sequential A/B testing — champion/challenger
 
-The standard pattern — run a Hosmer-Lemeshow test or check A/E each month — inflates the false-positive rate. After twelve months at α=0.05, the chance of a false alarm exceeds 40% even if the model is perfectly calibrated.
-
-`PITMonitor` solves this using probability integral transform e-processes (Henzi, Murph, Ziegel 2025, arXiv:2603.13156). The guarantee is: P(ever raise an alarm | model calibrated) ≤ α, for all t, forever.
-
-`PITMonitor` accepts pre-computed probability integral transforms (PITs) — values in [0, 1] computed from the model's predictive CDF. You compute the PIT for each observation, then pass it to `monitor.update()`:
-
-```python
-from insurance_monitoring import PITMonitor
-from scipy.stats import poisson
-
-monitor = PITMonitor(alpha=0.05)
-
-# For each new observation: compute PIT from model's predictive CDF, then update
-for row in live_data:
-    mu = row.exposure * row.lambda_hat          # model's predicted mean
-    pit = float(poisson.cdf(row.claims, mu))    # probability integral transform
-    alarm = monitor.update(pit)
-    if alarm.triggered:
-        print(f"Calibration alarm: evidence = {alarm.evidence:.2f}")
-        break
-```
-
-### `sequential` — anytime-valid A/B testing (v0.8.0)
-
-Champion/challenger pricing experiments are routinely run with a pre-specified end date. Checking early to stop a bad challenger is statistically invalid under classical hypothesis testing. `SequentialTest` uses mixture SPRT (Johari et al. 2022) — you can check at every interim update and stop early if the challenger is clearly better or worse, with full type I error control.
+Champion/challenger pricing experiments are routinely run with a pre-specified end date. Checking early to stop a bad challenger is statistically invalid under classical hypothesis testing. `SequentialTest` uses mixture SPRT (mSPRT, Johari et al. 2022) — check at every interim update with full type I error control.
 
 ```python
 from insurance_monitoring import SequentialTest
 
 test = SequentialTest(metric="frequency", alpha=0.05)
-
-# Monthly updates — stop whenever the e-value crosses the threshold
 for batch in monthly_batches:
     result = test.update(
         champion_claims=batch.champion_claims,
@@ -262,20 +227,20 @@ for batch in monthly_batches:
         break
 ```
 
-### `drift_attribution` — TRIPODD (v0.4.0+)
+### TRIPODD drift attribution
 
-PSI tells you that driver_age has drifted. TRIPODD tells you whether that driver_age drift explains why the model's discrimination has fallen — accounting for feature interactions. Use `InterpretableDriftDetector` (v0.7.0) for high-dimensional feature sets or when exposure weighting is required.
+PSI tells you that driver_age has drifted. TRIPODD tells you whether that drift explains why the model's discrimination has fallen — accounting for feature interactions.
 
 ```python
 from insurance_monitoring import InterpretableDriftDetector
 
 detector = InterpretableDriftDetector(
-    error_control="fdr",    # Benjamini-Hochberg for d >= 10 factors
-    loss="poisson_deviance", # canonical for frequency models
+    error_control="fdr",        # Benjamini-Hochberg for d >= 10 factors
+    loss="poisson_deviance",    # canonical for frequency models
 )
 detector.fit_reference(X_ref, y_ref, weights=exposure_ref)
 result = detector.test(X_cur, y_cur, weights=exposure_cur)
-print(result.significant_features)  # list of features that explain the performance shift
+print(result.significant_features)  # which factors explain the performance shift
 ```
 
 ---
@@ -284,7 +249,7 @@ print(result.significant_features)  # list of features that explain the performa
 
 **PRA SS1/23** (Model Risk Management, March 2023) requires insurers to maintain a model monitoring framework that detects deterioration in model performance. The expectation is documented thresholds, regular testing, and a governance process that escalates to the model risk committee when thresholds are breached. A/E ratio and Gini monitoring are the two metrics most commonly cited in SS1/23 supervisory discussions.
 
-**Consumer Duty (PS22/9)** requires ongoing monitoring of whether pricing outcomes are fair across customer groups, not just at point of sale. The combination of `MonitoringReport` and [insurance-fairness](https://github.com/burning-cost/insurance-fairness) `calibration_by_group()` produces a per-protected-group A/E split suitable for Consumer Duty Outcome 4 monitoring.
+**Consumer Duty (PS22/9)** requires ongoing monitoring of whether pricing outcomes are fair across customer groups. The combination of `MonitoringReport` and [insurance-fairness](https://github.com/burning-cost/insurance-fairness) `calibration_by_group()` produces a per-protected-group A/E split suitable for Consumer Duty Outcome 4 monitoring.
 
 ---
 
