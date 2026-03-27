@@ -26,6 +26,10 @@ sequential
     Anytime-valid A/B testing for champion/challenger experiments using mSPRT
     (Johari et al. 2022). Valid type I error control at every interim check.
     Supports Poisson frequency, log-normal severity, and compound loss ratio tests.
+multicalibration
+    MulticalibrationMonitor: subgroup-level calibration monitoring. Dual-gate
+    alerting (relative bias + z-stat) for (bin, group) cells. Based on
+    Denuit, Michaelides & Trufin (2026), arXiv:2603.16317.
 thresholds
     Configurable threshold defaults (PSI, A/E, Gini).
 
@@ -212,6 +216,12 @@ from insurance_monitoring.thresholds import (
     MonitoringThresholds,
     PSIThresholds,
 )
+from insurance_monitoring.multicalibration import (
+    MulticalibrationMonitor,
+    MulticalibrationResult,
+    MulticalibCell,
+    MulticalibThresholds,
+)
 
 from importlib.metadata import version, PackageNotFoundError
 
@@ -275,6 +285,11 @@ __all__ = [
     "PSIThresholds",
     "AERatioThresholds",
     "GiniDriftThresholds",
+    # multicalibration monitoring (v0.9.3)
+    "MulticalibrationMonitor",
+    "MulticalibrationResult",
+    "MulticalibCell",
+    "MulticalibThresholds",
     # MLflow integration (optional -- requires mlflow)
     "MonitoringTracker",
 ]
