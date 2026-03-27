@@ -4,7 +4,7 @@
 [![Downloads](https://img.shields.io/pypi/dm/insurance-monitoring)](https://pypi.org/project/insurance-monitoring/)
 [![Python](https://img.shields.io/pypi/pyversions/insurance-monitoring)](https://pypi.org/project/insurance-monitoring/)
 [![Tests](https://github.com/burning-cost/insurance-monitoring/actions/workflows/ci.yml/badge.svg)](https://github.com/burning-cost/insurance-monitoring/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-MIT-green)]()
+[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/burning-cost/insurance-monitoring/blob/main/LICENSE)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/burning-cost/burning-cost-examples/blob/main/notebooks/burning-cost-in-30-minutes.ipynb)
 [![nbviewer](https://img.shields.io/badge/render-nbviewer-orange)](https://nbviewer.org/github/burning-cost/insurance-monitoring/blob/main/notebooks/quickstart.ipynb)
 
