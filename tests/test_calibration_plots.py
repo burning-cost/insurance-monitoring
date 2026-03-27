@@ -89,7 +89,7 @@ class TestPlotMurphy:
     def test_returns_figure(self):
         """plot_murphy should return a matplotlib Figure."""
         y, y_hat, exposure = _make_poisson_data()
-        result = murphy_decomposition(y, y_hat, exposure=exposure, n_bins=5)
+        result = murphy_decomposition(y, y_hat, exposure=exposure)
         fig = plot_murphy(result)
         assert fig is not None
         plt.close("all")
@@ -97,7 +97,7 @@ class TestPlotMurphy:
     def test_with_existing_axes(self):
         """plot_murphy should accept an existing Axes."""
         y, y_hat, exposure = _make_poisson_data()
-        result = murphy_decomposition(y, y_hat, exposure=exposure, n_bins=5)
+        result = murphy_decomposition(y, y_hat, exposure=exposure)
         fig_pre, ax_pre = plt.subplots()
         returned_fig = plot_murphy(result, ax=ax_pre)
         assert returned_fig is not None
@@ -112,7 +112,7 @@ class TestPlotMurphy:
         # Gamma outcomes: shape=1, scale=y_hat
         from scipy.stats import gamma
         y = gamma.rvs(a=1.0, scale=y_hat, random_state=1)
-        result = murphy_decomposition(y, y_hat, exposure=exposure, n_bins=5, distribution="gamma")
+        result = murphy_decomposition(y, y_hat, exposure=exposure, distribution="gamma")
         fig = plot_murphy(result)
         assert fig is not None
         plt.close("all")
