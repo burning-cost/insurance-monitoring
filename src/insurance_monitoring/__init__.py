@@ -20,18 +20,6 @@ calibration
 discrimination
     Gini coefficient, Gini drift tests (arXiv 2510.04556), Lorenz curves,
     and GiniDriftBootstrapTest with percentile CIs and governance plot.
-gini_drift
-    GiniDriftTest: class-based two-sample asymptotic z-test for whether
-    ranking power has changed between reference and monitoring periods.
-    Requires raw data for both periods. Result in GiniDriftTestResult.
-business_value
-    Loss Ratio Error (LRE) metric from Evans Hedges (2025), arXiv:2512.03242.
-    Converts Pearson correlation rho into expected loss ratio impact. Use
-    lre_compare() to quantify the financial value of a model improvement.
-multicalibration
-    MulticalibrationMonitor: per-(subgroup, premium-band) calibration monitoring.
-    Answers whether the model is well-calibrated for subgroup g at premium band k.
-    Different from PSI (distributional drift) or A/E ratio (overall lift).
 report
     MonitoringReport — combined check with traffic-light output.
 sequential
@@ -39,7 +27,7 @@ sequential
     (Johari et al. 2022). Valid type I error control at every interim check.
     Supports Poisson frequency, log-normal severity, and compound loss ratio tests.
 thresholds
-    Configurable threshold defaults (PSI, A/E, Gini, Multicalibration).
+    Configurable threshold defaults (PSI, A/E, Gini).
 
 Quick start
 -----------
@@ -53,75 +41,6 @@ Quick start
     from insurance_monitoring.discrimination import gini_coefficient, GiniDriftBootstrapTest
     from insurance_monitoring.sequential import SequentialTest
     from insurance_monitoring import PITMonitor
-    from insurance_monitoring import MulticalibrationMonitor
-
-v0.9.3 changes
---------------
-- ``MulticalibrationMonitor`` added. Answers: "is the model well-calibrated for
-  subgroup g at premium band k?" — different from PSI (distributional drift) or
-  A/E ratio (overall lift).
-
-  Fits exposure-weighted prediction quantile bins at reference time (frozen, so
-  cells are comparable across periods). For each (bin, group) cell computes
-  observed, expected, AE_ratio, relative_bias, and a Poisson z-statistic. Alerts
-  fire only when BOTH |relative_bias| >= threshold AND |z_stat| >= min_z_abs.
-
-  New public API:
-
-  - ``MulticalibrationMonitor(n_bins, min_z_abs, min_relative_bias, min_exposure)``
-    — fit/update class.
-  - ``MulticalibrationResult`` — result from update(). Has ``.alerts``,
-    ``.cell_table`` (Polars DataFrame), ``.summary()``, ``.to_dict()``.
-  - ``MulticalibCell`` — typed dataclass for one (bin, group) cell.
-  - ``MulticalibThresholds`` — configurable alert thresholds.
-
-  No new dependencies. Reference: Denuit, Michaelides & Trufin (2026),
-  arXiv:2603.16317.
-
-v0.9.2 changes
---------------
-- ``gini_drift`` module added. ``GiniDriftTest`` class: two-sample asymptotic z-test for
-  whether the Gini coefficient (ranking power) has changed between reference and monitoring
-  periods. Based on Wüthrich, Merz & Noll (2025), arXiv:2510.04556 Theorem 1 + Algorithm 2.
-
-  New public API:
-
-  - ``GiniDriftTest(reference_actual, reference_predicted, monitor_actual,
-    monitor_predicted, reference_exposure=None, monitor_exposure=None,
-    n_bootstrap=200, alpha=0.32, random_state=None)`` — class with lazy evaluation.
-  - ``.test()`` — returns ``GiniDriftTestResult`` with gini_reference, gini_monitor,
-    delta, z_statistic, p_value, significant, se_reference, se_monitor.
-  - ``.summary()`` — governance-ready plain-text report paragraph.
-  - ``GiniDriftTestResult`` — typed dataclass with dict-style access.
-
-  No new dependencies.
-
-v0.9.1 changes
---------------
-- ``business_value`` module added. Implements the Loss Ratio Error (LRE) metric
-  from Evans Hedges (2025), arXiv:2512.03242.
-
-  New public API:
-
-  - ``loss_ratio_error(rho, cv, eta)`` — expected LR uplift above perfect-model
-    baseline (E_LR from Definition 2). Returns 0 for rho=1.
-  - ``loss_ratio(rho, cv, eta, margin=1.0)`` — expected portfolio loss ratio at
-    correlation rho (Theorem 1). Perfect model gives 1/margin.
-  - ``lre_compare(rho_old, rho_new, cv, eta, margin=1.0)`` — compare two models,
-    returning ``LREResult`` with lr_old, lr_new, delta_lr, delta_lr_bps, and
-    loss ratio errors for both. delta_lr_bps is the headline figure for business
-    cases: multiply by GWP to get annual financial impact.
-  - ``calibrate_eta(rho_observed, cv, lr_observed, margin=1.0)`` — reverse-solve
-    Theorem 1 to recover the implied demand elasticity from historical data.
-  - ``LREResult`` dataclass for structured output.
-
-  No new dependencies. scipy.optimize.brentq used for calibrate_eta.
-
-v0.9.0 changes
---------------
-- ``MonitoringTracker`` added — MLflow model registry integration.
-  Attaches insurance-monitoring results to registered MLflow models.
-  MLflow is an optional dependency: ``pip install insurance-monitoring[mlflow]``.
 
 v0.8.0 changes
 --------------
@@ -234,19 +153,6 @@ v0.2.0 additions
   signals, reducing catastrophic misses).
 """
 
-from insurance_monitoring.multicalibration import (
-    MulticalibrationMonitor,
-    MulticalibrationResult,
-    MulticalibCell,
-    MulticalibThresholds,
-)
-from insurance_monitoring.business_value import (
-    loss_ratio_error,
-    loss_ratio,
-    lre_compare,
-    calibrate_eta,
-    LREResult,
-)
 from insurance_monitoring.calibration import (
     ae_ratio,
     ae_ratio_ci,
@@ -279,10 +185,7 @@ from insurance_monitoring.discrimination import (
     GiniDriftBootstrapTest,
     lorenz_curve,
 )
-from insurance_monitoring.gini_drift import (
-    GiniDriftTest,
-    GiniDriftTestResult,
-)
+from insurance_monitoring.gini_drift import GiniDriftTest, GiniDriftTestResult
 from insurance_monitoring.drift import (
     csi,
     ks_test,
@@ -358,21 +261,9 @@ __all__ = [
     "GiniDriftOneSampleResult",
     "GiniBootstrapResult",
     "GiniDriftBootstrapTest",
-    "lorenz_curve",
-    # gini drift test class (v1.0.0)
     "GiniDriftTest",
     "GiniDriftTestResult",
-    # business value / LRE (v0.9.1)
-    "loss_ratio_error",
-    "loss_ratio",
-    "lre_compare",
-    "calibrate_eta",
-    "LREResult",
-    # multicalibration (v0.9.3)
-    "MulticalibrationMonitor",
-    "MulticalibrationResult",
-    "MulticalibCell",
-    "MulticalibThresholds",
+    "lorenz_curve",
     # report
     "MonitoringReport",
     # sequential A/B testing (v0.5.0+, tests completed v0.8.0)
