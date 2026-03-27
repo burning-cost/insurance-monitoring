@@ -629,6 +629,12 @@ Demonstrated on synthetic UK motor data with three deliberately induced failure 
 
 A ready-to-run Databricks notebook benchmarking this library against standard approaches is available in [burning-cost-examples](https://github.com/burning-cost/burning-cost-examples/blob/main/notebooks/monitoring_drift_detection.py).
 
+## External Dataset Validation: freMTPL2
+
+The monitoring stack has been validated against a real published insurance dataset. **freMTPL2** contains 677,991 French motor third-party liability policies from OpenML (dataset ID 41214), with rating factors covering area, vehicle power, vehicle age, driver age, bonus-malus, vehicle brand, fuel type, population density, and region.
+
+The benchmark notebook ([`notebooks/benchmark_fremtpl2_drift.py`](notebooks/benchmark_fremtpl2_drift.py)) fits a Poisson GLM on the earliest third of the book, then holds it stale and monitors the subsequent two thirds — replicating the production condition of an annual model. It exercises PSI and CSI drift detection across all five continuous features, A/E ratio monitoring with Poisson confidence intervals (including segmented A/E by driver age band), and the `GiniDriftTest` (Wüthrich, Merz & Noll, 2025) across both monitoring periods. At n ≈ 226k per segment, even moderate distributional shifts register in the PSI traffic-light bands, and the Gini z-test has sufficient power to detect ranking changes of one percentage point or less.
+
 ## Limitations
 
 - **PSI and CSI do not explain why the distribution shifted.** PSI flags that a feature distribution has changed; it does not identify whether the change is due to portfolio mix evolution, data quality degradation, seasonality, or external risk environment shift. A PSI RED on driver_age requires subsequent investigation to determine the root cause. `InterpretableDriftDetector` attributes drift to specific features using model-loss contributions, but still requires domain judgement to distinguish benign mix change from genuine model-invalidating shift.
