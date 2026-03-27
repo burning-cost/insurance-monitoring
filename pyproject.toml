@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "insurance-monitoring"
 version = "0.9.3"
-description = "Model drift detection, monitoring, calibration, and sequential A/B testing for insurance pricing models. PSI, CSI, Gini drift, A/E ratios, balance property testing, Murphy decomposition, TRIPODD drift attribution, mSPRT champion/challenger, bootstrap Gini CIs, PITMonitor e-process calibration monitoring, LRE business value."
+description = "Model drift detection, calibration monitoring, and sequential A/B testing for insurance pricing models: PSI, Gini drift, Murphy decomposition, mSPRT champion/challenger."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
@@ -20,11 +20,10 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Information Analysis",
     "Topic :: Office/Business :: Financial",
 ]
 dependencies = [
-
     "numpy>=2.0",
     "polars>=1.0",
     "scipy>=1.12",
@@ -37,11 +36,11 @@ dev = ["pytest>=8.0", "pytest-cov", "pdoc>=14.0.0"]
 mlflow = ["mlflow>=3.0", "pyarrow>=14.0"]
 
 [project.urls]
-Homepage = "https://burning-cost.github.io/insurance-monitoring"
+Homepage = "https://burning-cost.github.io/"
 Repository = "https://github.com/burning-cost/insurance-monitoring"
 Changelog = "https://github.com/burning-cost/insurance-monitoring/releases"
 Documentation = "https://burning-cost.github.io/insurance-monitoring"
-Issues = "https://github.com/burning-cost/insurance-monitoring/issues"
+"Bug Tracker" = "https://github.com/burning-cost/insurance-monitoring/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/insurance_monitoring"]
