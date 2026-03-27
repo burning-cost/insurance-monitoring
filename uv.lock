@@ -973,7 +973,7 @@ wheels = [
 
 [[package]]
 name = "insurance-monitoring"
-version = "0.9.2"
+version = "0.9.3"
 source = { editable = "." }
 dependencies = [
     { name = "matplotlib" },
@@ -993,15 +993,17 @@ dev = [
 ]
 mlflow = [
     { name = "mlflow" },
+    { name = "pyarrow" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "matplotlib", specifier = ">=3.7" },
-    { name = "mlflow", marker = "extra == 'mlflow'", specifier = ">=2.0" },
-    { name = "numpy", specifier = ">=1.25" },
+    { name = "mlflow", marker = "extra == 'mlflow'", specifier = ">=3.0" },
+    { name = "numpy", specifier = ">=2.0" },
     { name = "pdoc", marker = "extra == 'dev'", specifier = ">=14.0.0" },
     { name = "polars", specifier = ">=1.0" },
+    { name = "pyarrow", marker = "extra == 'mlflow'", specifier = ">=14.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-cov", marker = "extra == 'dev'" },
     { name = "scipy", specifier = ">=1.12" },
