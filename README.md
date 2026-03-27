@@ -181,7 +181,7 @@ print(f"Verdict: {murphy.verdict}")   # 'RECALIBRATE' or 'REFIT'
 
 # Full calibration audit in one call
 checker = CalibrationChecker(distribution="poisson")
-report = checker.run(actual, predicted, exposure=exposure)
+report = checker.check(actual, predicted, exposure=exposure)
 ```
 
 ### `discrimination` — Gini drift
@@ -212,8 +212,8 @@ bt = GiniDriftBootstrapTest(
     n_bootstrap=500,
 )
 bt_result = bt.test()
-print(bt_result.summary())   # governance-ready paragraph
-bt.plot()                    # bootstrap histogram with CI shading — IFoA/PRA deliverable
+print(bt.summary())      # governance-ready paragraph (method on the test class, not the result)
+bt.plot()                # bootstrap histogram with CI shading — IFoA/PRA deliverable
 ```
 
 ### `calibration.PITMonitor` — anytime-valid calibration monitoring (v0.7.0)
@@ -222,16 +222,21 @@ The standard pattern — run a Hosmer-Lemeshow test or check A/E each month — 
 
 `PITMonitor` solves this using probability integral transform e-processes (Henzi, Murph, Ziegel 2025, arXiv:2603.13156). The guarantee is: P(ever raise an alarm | model calibrated) ≤ α, for all t, forever.
 
+`PITMonitor` accepts pre-computed probability integral transforms (PITs) — values in [0, 1] computed from the model's predictive CDF. You compute the PIT for each observation, then pass it to `monitor.update()`:
+
 ```python
 from insurance_monitoring import PITMonitor
+from scipy.stats import poisson
 
-monitor = PITMonitor(alpha=0.05, distribution="poisson")
-monitor.fit(train_actual, train_predicted)
+monitor = PITMonitor(alpha=0.05)
 
-for month_actual, month_predicted in monthly_data:
-    alarm = monitor.update(month_actual, month_predicted)
+# For each new observation: compute PIT from model's predictive CDF, then update
+for row in live_data:
+    mu = row.exposure * row.lambda_hat          # model's predicted mean
+    pit = float(poisson.cdf(row.claims, mu))    # probability integral transform
+    alarm = monitor.update(pit)
     if alarm.triggered:
-        print(f"Calibration alarm: e-value = {alarm.e_value:.2f}")
+        print(f"Calibration alarm: evidence = {alarm.evidence:.2f}")
         break
 ```
 
@@ -243,13 +248,17 @@ Champion/challenger pricing experiments are routinely run with a pre-specified e
 from insurance_monitoring import SequentialTest
 
 test = SequentialTest(metric="frequency", alpha=0.05)
-test.set_null(reference_rate=0.08)
 
 # Monthly updates — stop whenever the e-value crosses the threshold
-for batch_actual, batch_predicted, batch_exposure in monthly_batches:
-    result = test.update(batch_actual, batch_predicted, exposure=batch_exposure)
-    print(f"e-value: {result.e_value:.2f}  stopped: {result.stopped}")
-    if result.stopped:
+for batch in monthly_batches:
+    result = test.update(
+        champion_claims=batch.champion_claims,
+        champion_exposure=batch.champion_exposure,
+        challenger_claims=batch.challenger_claims,
+        challenger_exposure=batch.challenger_exposure,
+    )
+    print(f"e-value: {result.lambda_value:.2f}  stopped: {result.should_stop}")
+    if result.should_stop:
         break
 ```
 

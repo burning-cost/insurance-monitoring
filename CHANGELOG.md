@@ -1,5 +1,53 @@
 # Changelog
 
+## v0.9.4 (2026-03-27)
+
+Documentation fixes — first-run UX audit.
+
+Four README code examples had method names or parameter names that diverged from
+the actual implementation. A new user copying any of these examples would have
+hit an immediate AttributeError or TypeError with no clear error message.
+
+**Bugs fixed:**
+
+1. `CalibrationChecker.run()` → `CalibrationChecker.check()`. The method has
+   always been `check()`. `run()` does not exist on this class. Example in the
+   `calibration` module section of the README was wrong.
+
+2. `PITMonitor(alpha=0.05, distribution="poisson")` — `distribution` is not a
+   constructor parameter. `PITMonitor` accepts pre-computed probability integral
+   transforms, not raw actuals and predictions. The distribution-specific CDF
+   (e.g. `scipy.stats.poisson.cdf`) is applied by the caller before calling
+   `monitor.update(pit)`. The README example replaced the wrong constructor call
+   and the fictional `monitor.fit(train_actual, train_predicted)` with a correct
+   per-observation loop using `scipy.stats.poisson`.
+
+3. `alarm.e_value` → `alarm.evidence`. `PITAlarm` stores the e-process value in
+   the `evidence` field, not `e_value`.
+
+4. `SequentialTest.set_null(reference_rate=0.08)` — this method does not exist.
+   The README example was entirely wrong for `SequentialTest`: it showed
+   `test.update(batch_actual, batch_predicted, exposure=batch_exposure)` but the
+   actual signature is
+   `update(champion_claims, champion_exposure, challenger_claims, challenger_exposure)`.
+   The corrected example shows the correct positional parameters. `result.e_value`
+   and `result.stopped` are also wrong; corrected to `result.lambda_value` and
+   `result.should_stop`.
+
+5. `bt_result.summary()` → `bt.summary()`. `summary()` is a method on
+   `GiniDriftBootstrapTest` (the test class), not on `GiniBootstrapResult` (the
+   object returned by `bt.test()`). The README called it on the result object.
+
+No source code changes. All bugs were documentation-only. No new dependencies.
+
+
+## v0.9.3 (2026-03-26)
+
+`MulticalibrationMonitor` added — subgroup-level calibration monitoring.
+
+Reference: Denuit, Michaelides & Trufin (2026), arXiv:2603.16317.
+
+
 ## v0.9.2 (2026-03-25)
 
 `gini_drift` module added — `GiniDriftTest`: class-based two-sample asymptotic z-test
