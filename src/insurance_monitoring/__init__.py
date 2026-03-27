@@ -28,6 +28,10 @@ business_value
     Loss Ratio Error (LRE) metric from Evans Hedges (2025), arXiv:2512.03242.
     Converts Pearson correlation rho into expected loss ratio impact. Use
     lre_compare() to quantify the financial value of a model improvement.
+multicalibration
+    MulticalibrationMonitor: per-(subgroup, premium-band) calibration monitoring.
+    Answers whether the model is well-calibrated for subgroup g at premium band k.
+    Different from PSI (distributional drift) or A/E ratio (overall lift).
 report
     MonitoringReport — combined check with traffic-light output.
 sequential
@@ -35,7 +39,7 @@ sequential
     (Johari et al. 2022). Valid type I error control at every interim check.
     Supports Poisson frequency, log-normal severity, and compound loss ratio tests.
 thresholds
-    Configurable threshold defaults (PSI, A/E, Gini).
+    Configurable threshold defaults (PSI, A/E, Gini, Multicalibration).
 
 Quick start
 -----------
@@ -49,7 +53,30 @@ Quick start
     from insurance_monitoring.discrimination import gini_coefficient, GiniDriftBootstrapTest
     from insurance_monitoring.sequential import SequentialTest
     from insurance_monitoring import PITMonitor
-    from insurance_monitoring.business_value import lre_compare, loss_ratio_error
+    from insurance_monitoring import MulticalibrationMonitor
+
+v0.9.3 changes
+--------------
+- ``MulticalibrationMonitor`` added. Answers: "is the model well-calibrated for
+  subgroup g at premium band k?" — different from PSI (distributional drift) or
+  A/E ratio (overall lift).
+
+  Fits exposure-weighted prediction quantile bins at reference time (frozen, so
+  cells are comparable across periods). For each (bin, group) cell computes
+  observed, expected, AE_ratio, relative_bias, and a Poisson z-statistic. Alerts
+  fire only when BOTH |relative_bias| >= threshold AND |z_stat| >= min_z_abs.
+
+  New public API:
+
+  - ``MulticalibrationMonitor(n_bins, min_z_abs, min_relative_bias, min_exposure)``
+    — fit/update class.
+  - ``MulticalibrationResult`` — result from update(). Has ``.alerts``,
+    ``.cell_table`` (Polars DataFrame), ``.summary()``, ``.to_dict()``.
+  - ``MulticalibCell`` — typed dataclass for one (bin, group) cell.
+  - ``MulticalibThresholds`` — configurable alert thresholds.
+
+  No new dependencies. Reference: Denuit, Michaelides & Trufin (2026),
+  arXiv:2603.16317.
 
 v0.9.2 changes
 --------------
@@ -207,6 +234,12 @@ v0.2.0 additions
   signals, reducing catastrophic misses).
 """
 
+from insurance_monitoring.multicalibration import (
+    MulticalibrationMonitor,
+    MulticalibrationResult,
+    MulticalibCell,
+    MulticalibThresholds,
+)
 from insurance_monitoring.business_value import (
     loss_ratio_error,
     loss_ratio,
@@ -335,6 +368,11 @@ __all__ = [
     "lre_compare",
     "calibrate_eta",
     "LREResult",
+    # multicalibration (v0.9.3)
+    "MulticalibrationMonitor",
+    "MulticalibrationResult",
+    "MulticalibCell",
+    "MulticalibThresholds",
     # report
     "MonitoringReport",
     # sequential A/B testing (v0.5.0+, tests completed v0.8.0)
