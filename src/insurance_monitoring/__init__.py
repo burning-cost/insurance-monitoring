@@ -190,6 +190,14 @@ from insurance_monitoring.discrimination import (
     lorenz_curve,
 )
 from insurance_monitoring.gini_drift import GiniDriftTest, GiniDriftTestResult
+from insurance_monitoring.gini_monitoring import (
+    GiniDriftMonitor,
+    GiniDriftResult as GiniDriftMonitorResult,
+    GiniBootstrapMonitor,
+    GiniBootstrapResult as GiniBootstrapMonitorResult,
+    MurphyDecomposition,
+    _MurphyComponents as MurphyComponents,
+)
 from insurance_monitoring.drift import (
     csi,
     ks_test,
@@ -274,6 +282,10 @@ __all__ = [
     "GiniDriftTest",
     "GiniDriftTestResult",
     "lorenz_curve",
+    # Gini monitoring with fit/test interface (gini_monitoring module)
+    "GiniDriftMonitor",
+    "GiniBootstrapMonitor",
+    "MurphyDecomposition",
     # report
     "MonitoringReport",
     # sequential A/B testing (v0.5.0+, tests completed v0.8.0)
