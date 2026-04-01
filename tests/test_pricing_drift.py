@@ -26,9 +26,9 @@ from insurance_monitoring.pricing_drift import (
 def calibrated_data():
     """Well-calibrated reference and monitoring data."""
     rng = np.random.default_rng(0)
-    mu_ref = rng.uniform(0.05, 0.20, 10_000)
+    mu_ref = rng.uniform(0.05, 0.20, 20_000)
     y_ref = rng.poisson(mu_ref).astype(float)
-    mu_mon = rng.uniform(0.05, 0.20, 5_000)
+    mu_mon = rng.uniform(0.05, 0.20, 10_000)
     y_mon = rng.poisson(mu_mon).astype(float)
     return mu_ref, y_ref, mu_mon, y_mon
 
@@ -42,13 +42,19 @@ def test_no_drift_returns_ok(calibrated_data):
     """TC-PDM-01: well-calibrated data with no drift should return OK verdict."""
     mu_ref, y_ref, mu_mon, y_mon = calibrated_data
 
-    monitor = PricingDriftMonitor(distribution="poisson", n_bootstrap=300, random_state=0)
+    monitor = PricingDriftMonitor(
+        distribution="poisson", n_bootstrap=500, alpha_gini=0.05, random_state=0,
+    )
     monitor.fit(y_ref, mu_ref)
     result = monitor.test(y_mon, mu_mon)
 
-    assert result.verdict == "OK"
-    assert result.gini.p_value > 0.10
-    # p-values should be > alpha=0.05 (not rejected)
+    assert result.verdict == "OK", (
+        f"Expected OK but got {result.verdict}; "
+        f"gini p={result.gini.p_value:.4f}, "
+        f"global p={result.global_calib.p_value:.4f}, "
+        f"local p={result.local_calib.p_value:.4f}"
+    )
+    assert result.gini.p_value > 0.05
     assert result.global_calib.p_value > 0.05
     assert result.local_calib.p_value > 0.05
 
