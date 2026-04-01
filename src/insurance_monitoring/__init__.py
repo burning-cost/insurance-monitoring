@@ -46,6 +46,35 @@ Quick start
     from insurance_monitoring.sequential import SequentialTest
     from insurance_monitoring import PITMonitor
 
+v0.10.0 changes
+---------------
+- PricingDriftMonitor, PricingDriftResult, and CalibTestResult
+  added to insurance_monitoring.pricing_drift. Implements the full Brauer,
+  Menzel & Wüthrich (2025) two-step monitoring framework (arXiv:2510.04556):
+
+  - Step 1: Gini bootstrap ranking drift test (Algorithm 3). The z-test
+    denominator is sigma_hat[G_old] (reference bootstrap SE), not sigma_hat[G_new].
+  - Step 2: GMCB + LMCB bootstrap auto-calibration tests (Algorithm 4).
+    GMCB tests for global level shift (fixable by balance correction).
+    LMCB tests for local cohort-level miscalibration (requires refit).
+  - Structured REFIT / RECALIBRATE / OK verdict.
+  - Default alpha_gini=0.32 (one-sigma early-warning rule, paper Remark 3).
+  - governance-ready summary() method for PRA model validation reports.
+  - Orchestrates GiniBootstrapMonitor and MurphyDecomposition internally.
+
+- CalibrationCUSUM, CUSUMAlarm, and CUSUMSummary added to
+  insurance_monitoring.cusum. Implements the calibration CUSUM chart
+  from Franck, Driscoll, Szajnfarber, Woodall (2025), arXiv:2510.25573:
+
+  - Likelihood-ratio CUSUM statistic using LLO alternative hypothesis.
+  - Dynamic probability control limits (DPCLs) maintaining constant CFAR.
+  - Supports binary Bernoulli outcomes (paper method) and Poisson count
+    data (insurance frequency adaptation).
+  - In-control ARL0 ~ 1/cfar by construction. At cfar=0.005: ARL0=200.
+  - Out-of-control ARL1 ~ 20-40 for 2x miscalibration at cfar=0.005.
+  - Statistic resets after alarm; monitoring continues automatically.
+  - .plot() method produces the governance chart (statistic + control limits).
+
 v0.8.0 changes
 --------------
 - ``sequential`` module completed with full test coverage. All 10 test cases from
@@ -231,6 +260,17 @@ from insurance_monitoring.multicalibration import (
     MulticalibThresholds,
 )
 
+
+from insurance_monitoring.pricing_drift import (
+    PricingDriftMonitor,
+    PricingDriftResult,
+    CalibTestResult,
+)
+from insurance_monitoring.cusum import (
+    CalibrationCUSUM,
+    CUSUMAlarm,
+    CUSUMSummary,
+)
 from importlib.metadata import version, PackageNotFoundError
 
 try:
@@ -302,6 +342,14 @@ __all__ = [
     "MulticalibrationResult",
     "MulticalibCell",
     "MulticalibThresholds",
+    # pricing drift monitoring (v0.10.0)
+    "PricingDriftMonitor",
+    "PricingDriftResult",
+    "CalibTestResult",
+    # calibration CUSUM monitoring (v0.10.0)
+    "CalibrationCUSUM",
+    "CUSUMAlarm",
+    "CUSUMSummary",
     # MLflow integration (optional -- requires mlflow)
     "MonitoringTracker",
 ]
