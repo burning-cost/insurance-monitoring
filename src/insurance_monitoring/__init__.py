@@ -32,6 +32,12 @@ multicalibration
     Denuit, Michaelides & Trufin (2026), arXiv:2603.16317.
 thresholds
     Configurable threshold defaults (PSI, A/E, Gini).
+conformal_chart
+    ConformalControlChart: distribution-free Shewhart-equivalent chart via
+    conformal p-values (arXiv:2512.23602). Calibrated FAR replaces parametric
+    3-sigma limits. No normality assumption — exact finite-sample guarantee.
+    MultivariateConformalMonitor: multivariate model-health monitoring via
+    conformal anomaly detection. Single p-value per reporting cycle.
 
 Quick start
 -----------
@@ -45,6 +51,25 @@ Quick start
     from insurance_monitoring.discrimination import gini_coefficient, GiniDriftBootstrapTest
     from insurance_monitoring.sequential import SequentialTest
     from insurance_monitoring import PITMonitor
+    from insurance_monitoring import ConformalControlChart, MultivariateConformalMonitor
+
+v0.11.0 changes
+---------------
+- ConformalControlChart, MultivariateConformalMonitor, and
+  ConformalChartResult added (insurance_monitoring.conformal_chart).
+  Distribution-free SPC via conformal prediction (Burger 2025, arXiv:2512.23602).
+
+  - Calibrated false alarm rate at alpha=0.05 (default) or any user-specified
+    level. No normality required — exact finite-sample coverage guarantee under
+    exchangeability.
+  - Four NCS helpers: absolute residual, relative residual (best for GLM/GBM
+    policy-level monitoring), median deviation, studentized.
+  - MultivariateConformalMonitor accepts any sklearn-duck-typed anomaly
+    model (IsolationForest default, sklearn optional). Single conformal p-value
+    per monitoring cycle — suitable for governance dashboards combining PSI,
+    A/E, and Gini metrics.
+  - ConformalChartResult.summary() returns a governance-ready paragraph
+    for PRA SS3/17 model monitoring submissions.
 
 v0.10.0 changes
 ---------------
@@ -261,6 +286,11 @@ from insurance_monitoring.multicalibration import (
 )
 
 
+from insurance_monitoring.conformal_chart import (
+    ConformalControlChart,
+    MultivariateConformalMonitor,
+    ConformalChartResult,
+)
 from insurance_monitoring.pricing_drift import (
     PricingDriftMonitor,
     PricingDriftResult,
@@ -342,6 +372,10 @@ __all__ = [
     "MulticalibrationResult",
     "MulticalibCell",
     "MulticalibThresholds",
+    # conformal SPC (v0.11.0)
+    "ConformalControlChart",
+    "MultivariateConformalMonitor",
+    "ConformalChartResult",
     # pricing drift monitoring (v0.10.0)
     "PricingDriftMonitor",
     "PricingDriftResult",
