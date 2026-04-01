@@ -106,7 +106,7 @@ def _result_to_dict(result: Any) -> dict:
     if isinstance(result, (float, int)):
         return {"value": result}
     if isinstance(result, pl.DataFrame):
-        return result.to_pandas().to_dict(orient="list")
+        return result.to_dict(as_series=False)
     if _PANDAS_AVAILABLE and isinstance(result, pd.DataFrame):
         return result.to_dict(orient="list")
     # Fallback: attempt dict-style access (GiniDriftResult supports this)
