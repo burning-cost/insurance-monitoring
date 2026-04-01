@@ -53,6 +53,25 @@ Quick start
     from insurance_monitoring import PITMonitor
     from insurance_monitoring import ConformalControlChart, MultivariateConformalMonitor
 
+v0.12.0 changes
+---------------
+- ConformedControlChart, ConformedProcessMonitor, ConformedControlResult,
+  and ConformedMonitorResult added (insurance_monitoring.conformal_spc).
+  sklearn-style fit/predict API for conformal SPC, complementing the existing
+  ConformalControlChart (fit/monitor) in conformal_chart.py.
+
+  - ConformedControlChart: built-in score functions (absolute, relative,
+    studentized). Accepts raw scalar observations; NCS computed internally.
+    Use for univariate residual/A/E/loss-ratio monitoring where you want
+    the chart to handle normalisation.
+  - ConformedProcessMonitor: multivariate monitoring with a single
+    X_calibration array (internal 80/20 train/calibration split). Supports
+    ocsvm (OneClassSVM), isolation_forest, or any sklearn-duck-typed model.
+  - Both classes accept alpha=0.0 (no signals) and alpha=1.0 (all signals)
+    as edge cases. Both return typed result dataclasses with signal_rate,
+    signals (bool array), and n_calibration.
+  - Module is self-contained: no dependency on conformal_chart.py.
+
 v0.11.0 changes
 ---------------
 - ConformalControlChart, MultivariateConformalMonitor, and
@@ -291,6 +310,12 @@ from insurance_monitoring.conformal_chart import (
     MultivariateConformalMonitor,
     ConformalChartResult,
 )
+from insurance_monitoring.conformal_spc import (
+    ConformedControlChart,
+    ConformedProcessMonitor,
+    ConformedControlResult,
+    ConformedMonitorResult,
+)
 from insurance_monitoring.pricing_drift import (
     PricingDriftMonitor,
     PricingDriftResult,
@@ -376,6 +401,11 @@ __all__ = [
     "ConformalControlChart",
     "MultivariateConformalMonitor",
     "ConformalChartResult",
+    # conformed SPC — fit/predict API (v0.12.0)
+    "ConformedControlChart",
+    "ConformedProcessMonitor",
+    "ConformedControlResult",
+    "ConformedMonitorResult",
     # pricing drift monitoring (v0.10.0)
     "PricingDriftMonitor",
     "PricingDriftResult",
