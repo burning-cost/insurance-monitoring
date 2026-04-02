@@ -346,6 +346,30 @@ On a 50,000-policy synthetic UK motor portfolio:
 
 ---
 
+## References
+
+**Regulatory instruments**
+
+- PRA. (2023). *Model Risk Management Principles for Banks* (SS1/23). Prudential Regulation Authority, Bank of England. [www.bankofengland.co.uk/prudential-regulation/publication/2023/may/model-risk-management-principles-for-banks-ss](https://www.bankofengland.co.uk/prudential-regulation/publication/2023/may/model-risk-management-principles-for-banks-ss)
+- FCA. (2023). *Consumer Duty: Final rules and guidance* (PS22/9). Financial Conduct Authority. [www.fca.org.uk/publications/policy-statements/ps22-9-new-consumer-duty](https://www.fca.org.uk/publications/policy-statements/ps22-9-new-consumer-duty)
+
+**Population Stability Index and score monitoring**
+
+- Yurdakul, B. (2018). "Statistical Properties of Population Stability Index." University of KwaZulu-Natal working paper. (Derivation of PSI thresholds: <0.10 no change, 0.10–0.25 moderate shift, >0.25 major shift.)
+- Hand, D.J. & Anagnostopoulos, C. (2014). "When is the area under the receiver operating characteristic curve an appropriate measure of classifier performance?" *Pattern Recognition Letters*, 42, 128–132. [doi:10.1016/j.patrec.2014.01.015](https://doi.org/10.1016/j.patrec.2014.01.015)
+
+**Forecast scoring and Murphy decomposition**
+
+- Murphy, A.H. (1973). "A New Vector Partition of the Probability Score." *Journal of Applied Meteorology*, 12(4), 595–600. [doi:10.1175/1520-0450(1973)012](https://doi.org/10.1175/1520-0450(1973)012%3C0595:ANVPOT%3E2.0.CO;2)
+- Gneiting, T. & Raftery, A.E. (2007). "Strictly Proper Scoring Rules, Prediction, and Estimation." *Journal of the American Statistical Association*, 102(477), 359–378. [doi:10.1198/016214506000001437](https://doi.org/10.1198/016214506000001437)
+
+**Sequential testing and drift detection**
+
+- Page, E.S. (1954). "Continuous Inspection Schemes." *Biometrika*, 41(1/2), 100–115. [doi:10.2307/2333009](https://doi.org/10.2307/2333009) (CUSUM control charts.)
+- Wald, A. (1945). "Sequential Tests of Statistical Hypotheses." *The Annals of Mathematical Statistics*, 16(2), 117–186. [doi:10.1214/aoms/1177731118](https://doi.org/10.1214/aoms/1177731118)
+
+---
+
 ## Related libraries
 
 | Library | What it does |
