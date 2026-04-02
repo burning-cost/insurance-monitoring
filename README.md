@@ -60,7 +60,7 @@ print(report.recommendation)   # => 'RECALIBRATE' or 'REFIT'
 print(report.to_polars())      # flat DataFrame: metric / value / band
 ```
 
-See `examples/` for fully worked scenarios: UK motor frequency monitoring, home insurance with PITMonitor, and a champion/challenger A/B test.
+See `examples/` for fully worked scenarios: `model_monitor_quickstart.py` (the v1.0.0 three-way decision), UK motor frequency monitoring, home insurance with PITMonitor, and a champion/challenger A/B test.
 
 ---
 
@@ -90,7 +90,7 @@ pip install insurance-monitoring[mlflow]
 | Feature drift heatmap | Engineer writes one-off script; no standard thresholds | `csi()` — one call, all rating factors, PRA-aligned thresholds |
 | A/E ratio with CI | Custom formula in SQL, no confidence interval | `ae_ratio_ci()` — Wilson CI, exposure-weighted, RAG status |
 | Discrimination drift | Gini computed ad hoc; no test for statistical significance | `gini_drift_test()` / `GiniDriftBootstrapTest` — bootstrap CI, governance plot |
-| RECALIBRATE vs REFIT decision | Actuary judgment call, not documented | `MonitoringReport.recommendation` — decision tree, Murphy decomposition sharpens it |
+| RECALIBRATE vs REFIT decision | Actuary judgment call, not documented | `ModelMonitor` — Gini + GMCB + LMCB bootstrap tests (arXiv 2510.04556), structured three-way decision |
 | Repeated monthly testing inflation | H-L / A/E tested afresh each month; inflated false-positive rate | `PITMonitor` — anytime-valid, P(ever false alarm \| calibrated) ≤ α, forever |
 | Champion/challenger A/B test | Wait for pre-specified sample size; cannot stop early | `SequentialTest` — mSPRT, valid at every interim check, supports frequency/severity/loss ratio |
 | Drift attribution (which feature explains the performance change?) | PSI-by-eye; no interaction-aware method | `DriftAttributor` / `InterpretableDriftDetector` — TRIPODD, FDR control, exposure weighting |
@@ -99,6 +99,43 @@ pip install insurance-monitoring[mlflow]
 ---
 
 ## Features
+
+### ModelMonitor — structured three-way decision (v1.0.0)
+
+`ModelMonitor` is the recommended entry point for teams running quarterly or monthly model reviews. It implements the full two-step procedure from Brauer, Menzel & Wüthrich (2025), arXiv:2510.04556.
+
+```python
+import numpy as np
+from insurance_monitoring import ModelMonitor
+
+rng = np.random.default_rng(42)
+n = 10_000
+exposure = rng.uniform(0.5, 1.5, n)
+y_hat = rng.gamma(2, 0.05, n)
+y_ref = rng.poisson(exposure * y_hat) / exposure   # reference period
+
+monitor = ModelMonitor(distribution="poisson", n_bootstrap=500, random_state=0)
+monitor.fit(y_ref, y_hat, exposure)
+
+# Quarterly monitoring run
+y_new = rng.poisson(exposure * y_hat * 1.10) / exposure  # 10% claims trend
+result = monitor.test(y_new, y_hat, exposure)
+
+print(result.decision)          # 'REDEPLOY' | 'RECALIBRATE' | 'REFIT'
+print(result.balance_factor)    # multiply predictions by this for RECALIBRATE
+print(result.summary())         # governance-ready paragraph for MRC packs
+print(result.to_dict())         # JSON-serialisable — log to MLflow or Delta
+```
+
+Decision rules:
+
+| Test fires | Decision | Action |
+|-----------|----------|--------|
+| Nothing | REDEPLOY | No action. Re-run next quarter. |
+| GMCB only | RECALIBRATE | Multiply predictions by `balance_factor`. Hours of work. |
+| Gini or LMCB | REFIT | Rebuild the model. Weeks of work. |
+
+The default `alpha=0.32` (one-sigma rule) is calibrated for ongoing production monitoring. See `examples/model_monitor_quickstart.py` for all three scenarios with realistic synthetic data.
 
 ### MonitoringReport — one call for a complete monitoring run
 
@@ -267,6 +304,8 @@ On a 50,000-policy synthetic UK motor portfolio:
 | `GiniDriftBootstrapTest` (n_bootstrap=500) | 5–15s | Percentile CI |
 | `SequentialTest` batch update | < 0.1s | Per monthly update |
 | `InterpretableDriftDetector` (10 features) | 30–90s | FDR-controlled bootstrap |
+| `ModelMonitor.fit()` (n_bootstrap=500, n=10k) | 5–15s | Bootstrap Gini SE estimation |
+| `ModelMonitor.test()` (n_bootstrap=500, n=5k) | 5–15s | Gini + GMCB + LMCB bootstrap tests |
 
 [Run the full workflow on Databricks](https://github.com/burning-cost/insurance-monitoring/blob/main/notebooks/quickstart.ipynb)
 
