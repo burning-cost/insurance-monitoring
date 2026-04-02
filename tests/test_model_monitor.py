@@ -51,12 +51,18 @@ def _make_monitor() -> ModelMonitor:
 class TestRedeploy:
     def test_redeploy_no_drift(self):
         """Same DGP for reference and monitor periods -> REDEPLOY."""
-        y_ref, y_hat, exp_ref = _make_clean_data(n=3000, seed=1)
-        y_new, _, exp_new = _make_clean_data(n=3000, seed=2)
+        rng_ref = np.random.default_rng(1)
+        rng_new = np.random.default_rng(2)
+        n = 3000
+        exposure = rng_ref.uniform(0.5, 2.0, n)
+        y_hat = rng_ref.gamma(2, 0.05, n)
+        # Both periods use the SAME y_hat and exposure, different noise only
+        y_ref = rng_ref.poisson(exposure * y_hat) / exposure
+        y_new = rng_new.poisson(exposure * y_hat) / exposure
 
         monitor = _make_monitor()
-        monitor.fit(y_ref, y_hat, exp_ref)
-        result = monitor.test(y_new, y_hat, exp_new)
+        monitor.fit(y_ref, y_hat, exposure)
+        result = monitor.test(y_new, y_hat, exposure)
 
         assert result.decision == "REDEPLOY", (
             f"Expected REDEPLOY under no drift, got {result.decision}. "
