@@ -465,6 +465,6 @@ class TestValidation:
             sdi.fit_single(np.ones(3), np.ones(3))
 
     def test_negative_exposure_raises(self):
-        sdi = ScoreDecompositionTest(exposure=np.array([-1.0, 1.0, 1.0]))
+        sdi = ScoreDecompositionTest(exposure=np.array([-1.0, 1.0, 1.0, 1.0, 1.0]))
         with pytest.raises(ValueError, match="strictly positive"):
-            sdi.fit_single(np.ones(3), np.ones(3))
+            sdi.fit_single(np.ones(5), np.ones(5))
