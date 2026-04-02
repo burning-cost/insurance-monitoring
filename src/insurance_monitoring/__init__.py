@@ -38,6 +38,11 @@ conformal_chart
     3-sigma limits. No normality assumption — exact finite-sample guarantee.
     MultivariateConformalMonitor: multivariate model-health monitoring via
     conformal anomaly detection. Single p-value per reporting cycle.
+baws
+    BAWSMonitor: Bootstrap Adaptive Window Selection for VaR/ES monitoring.
+    Data-driven sequential window selection via block-bootstrapped Fissler-Ziegel
+    score minimisation (Li, Lyu, Wang 2026, arXiv:2603.01157). Relevant for
+    Solvency II / IFRS 17 internal model backtesting window calibration.
 
 Quick start
 -----------
@@ -52,6 +57,20 @@ Quick start
     from insurance_monitoring.sequential import SequentialTest
     from insurance_monitoring import PITMonitor
     from insurance_monitoring import ConformalControlChart, MultivariateConformalMonitor
+
+v1.1.0 changes
+---------------
+- BAWSMonitor and BAWSResult added to insurance_monitoring.baws.
+  Implements Bootstrap Adaptive Window Selection from Li, Lyu, Wang (2026),
+  arXiv:2603.01157. Selects the optimal rolling window length for VaR/ES
+  monitoring at each time step via block-bootstrapped scoring rule minimisation.
+
+  - Fissler-Ziegel strictly consistent score for joint (VaR, ES) monitoring.
+  - Asymmetric absolute (tick) loss for VaR-only monitoring.
+  - Block bootstrap with automatic T^(1/3) block length rule of thumb.
+  - fit() / update() / update_batch() API. Polars history DataFrame.
+  - Governance-ready: directly addresses PRA SS3/19 internal model backtesting
+    window selection requirements.
 
 v0.12.0 changes
 ---------------
@@ -328,6 +347,7 @@ from insurance_monitoring.cusum import (
     CUSUMAlarm,
     CUSUMSummary,
 )
+from insurance_monitoring.baws import BAWSMonitor, BAWSResult
 from importlib.metadata import version, PackageNotFoundError
 
 try:
@@ -423,6 +443,9 @@ __all__ = [
     "check_lmcb",
     "GMCBResult",
     "LMCBResult",
+    # BAWS: Bootstrap Adaptive Window Selection for VaR/ES (v1.1.0)
+    "BAWSMonitor",
+    "BAWSResult",
     # MLflow integration (optional -- requires mlflow)
     "MonitoringTracker",
 ]
