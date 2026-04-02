@@ -32,23 +32,76 @@ from scipy.integrate import quad
 
 @dataclass
 class SequentialTestResult:
-    """Result returned by SequentialTest.update()."""
+    """Result returned by :meth:`SequentialTest.update`.
+
+    Attributes
+    ----------
+    decision : str
+        Stopping decision: one of ``'reject_H0'``, ``'inconclusive'``,
+        ``'futility'``, or ``'max_duration_reached'``.
+    should_stop : bool
+        True when decision is not ``'inconclusive'``. Use this as the
+        stopping flag in experiment loops.
+    lambda_value : float
+        e-process value Lambda_n. The test rejects H0 when Lambda_n >= 1/alpha.
+    log_lambda_value : float
+        log(Lambda_n). Monotone with evidence — better than lambda_value for
+        plotting the evidence trajectory over time.
+    threshold : float
+        Rejection threshold = 1/alpha. Fixed at test construction and constant
+        throughout the experiment.
+    champion_rate : float
+        Accumulated champion frequency: total_champion_claims /
+        total_champion_exposure (claims per car-year). For severity tests,
+        this is the mean log-cost.
+    challenger_rate : float
+        Accumulated challenger frequency or mean log-cost.
+    rate_ratio : float
+        challenger_rate / champion_rate. Values > 1 mean the challenger has a
+        higher claims rate (or cost) than the champion.
+    rate_ratio_ci_lower : float
+        Lower bound of the anytime-valid (1-alpha) confidence sequence for the
+        rate ratio. Valid simultaneously at all interim looks — no Bonferroni
+        correction required for interim peeking.
+    rate_ratio_ci_upper : float
+        Upper bound of the confidence sequence. Returns inf when either arm
+        has fewer than 5 accumulated claims.
+    total_champion_claims : float
+        Cumulative claims across all champion arms of update() calls.
+    total_champion_exposure : float
+        Cumulative exposure (car-years) across all champion arms.
+    total_challenger_claims : float
+        Cumulative claims across all challenger arms.
+    total_challenger_exposure : float
+        Cumulative exposure across all challenger arms.
+    n_updates : int
+        Number of update() calls made on this test instance.
+    total_calendar_time_days : float
+        Elapsed calendar time between first and most recent update() call.
+        Zero if no date arguments were provided.
+    prob_challenger_better : float
+        P(lambda_B < lambda_A | data) from a Gamma-Poisson conjugate model.
+        Informational only — not used for the stopping decision.
+    summary : str
+        Human-readable one-line summary including rate ratio, confidence
+        sequence, evidence level, and decision.
+    """
 
     # Stopping decision
-    decision: str            # 'reject_H0' | 'inconclusive' | 'futility' | 'max_duration_reached'
-    should_stop: bool        # True when decision != 'inconclusive'
+    decision: str
+    should_stop: bool
 
     # Test statistic
-    lambda_value: float      # e-process value Lambda_n. Reject when >= 1/alpha.
-    log_lambda_value: float  # log(Lambda_n). Monotone with evidence, better for plotting.
-    threshold: float         # = 1/alpha. Fixed for the test lifetime.
+    lambda_value: float
+    log_lambda_value: float
+    threshold: float
 
     # Effect estimates
-    champion_rate: float          # C_A / E_A (claims per car-year)
-    challenger_rate: float        # C_B / E_B
-    rate_ratio: float             # challenger_rate / champion_rate
-    rate_ratio_ci_lower: float    # Lower bound of anytime-valid (1-alpha) CS for rate_ratio
-    rate_ratio_ci_upper: float    # Upper bound of anytime-valid (1-alpha) CS for rate_ratio
+    champion_rate: float
+    challenger_rate: float
+    rate_ratio: float
+    rate_ratio_ci_lower: float
+    rate_ratio_ci_upper: float
 
     # Accumulated state
     total_champion_claims: float
@@ -56,10 +109,10 @@ class SequentialTestResult:
     total_challenger_claims: float
     total_challenger_exposure: float
     n_updates: int
-    total_calendar_time_days: float  # 0.0 if no dates provided
+    total_calendar_time_days: float
 
     # Bayesian secondary display (informational only — not used for stopping decision)
-    prob_challenger_better: float   # P(lambda_B < lambda_A | data)
+    prob_challenger_better: float
 
     # Human-readable summary
     summary: str

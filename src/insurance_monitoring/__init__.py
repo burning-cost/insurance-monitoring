@@ -348,6 +348,11 @@ from insurance_monitoring.cusum import (
     CUSUMSummary,
 )
 from insurance_monitoring.baws import BAWSMonitor, BAWSResult
+from insurance_monitoring.calibration import (
+    ScoreDecompositionTest,
+    ScoreDecompositionResult,
+    TwoForecastSDIResult,
+)
 from importlib.metadata import version, PackageNotFoundError
 
 try:
@@ -446,6 +451,10 @@ __all__ = [
     # BAWS: Bootstrap Adaptive Window Selection for VaR/ES (v1.1.0)
     "BAWSMonitor",
     "BAWSResult",
+    # score decomposition inference (v1.2.0)
+    "ScoreDecompositionTest",
+    "ScoreDecompositionResult",
+    "TwoForecastSDIResult",
     # MLflow integration (optional -- requires mlflow)
     "MonitoringTracker",
 ]

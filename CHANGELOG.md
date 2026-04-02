@@ -1,5 +1,88 @@
 # Changelog
 
+## v1.2.0 (2026-04-02)
+
+`ScoreDecompositionTest` added to `insurance_monitoring.calibration`.
+
+Asymptotic inference for Murphy score decompositions (Dimitriadis & Puke, 2026, arXiv:2603.04275). Decomposes any scoring rule S(F, y) = MCB + UNC - DSC and tests whether each component is significantly non-zero using HAC-robust standard errors (Newey-West). For two competing forecasts, tests whether they differ in miscalibration (MCB) vs. discrimination (DSC) — with higher power than the overall Diebold-Mariano test when forecasts differ in only one dimension.
+
+```python
+from insurance_monitoring.calibration import ScoreDecompositionTest
+
+sdi = ScoreDecompositionTest(score_type="mse")
+result = sdi.fit_single(y, y_hat)
+print(result.summary())
+# MCB=0 test: FAIL (miscalibrated)  p=0.0001
+# DSC=0 test: PASS (has skill)      p=0.0000
+
+comparison = sdi.fit_two(y, y_hat_champion, y_hat_challenger)
+print(comparison.delta_mcb_pvalue, comparison.delta_dsc_pvalue)
+```
+
+New exports: `ScoreDecompositionTest`, `ScoreDecompositionResult`, `TwoForecastSDIResult` from `insurance_monitoring.calibration`.
+
+
+## v1.1.0 (2026-04-01)
+
+`BAWSMonitor` and `BAWSResult` added to `insurance_monitoring.baws`.
+
+Bootstrap Adaptive Window Selection for VaR/ES monitoring. Implements the BAWS algorithm from Li, Lyu & Wang (2026), arXiv:2603.01157. At each time step selects the window length from a candidate set that minimises the block-bootstrapped scoring rule (Fissler-Ziegel for joint VaR/ES, or tick loss for VaR alone).
+
+Directly relevant to PRA SS3/19 internal model backtesting window selection.
+
+```python
+from insurance_monitoring.baws import BAWSMonitor
+
+monitor = BAWSMonitor(alpha=0.05, candidate_windows=[50, 100, 150, 200])
+monitor.fit(historical_returns)
+result = monitor.update(new_return)
+print(result.selected_window, result.var_estimate, result.es_estimate)
+```
+
+No new dependencies. numpy and polars (already core).
+
+Also in v1.1.0: `ConformedControlChart` and `ConformedProcessMonitor` added to
+`insurance_monitoring.conformal_spc`. Fit/predict API for conformal SPC,
+complementing the fit/monitor API of `ConformalControlChart` in conformal_chart.py.
+
+
+## v1.0.0 (2026-03-31)
+
+`ModelMonitor` and `ModelMonitorResult` added — integrated model monitoring framework.
+
+Implements the two-step monitoring procedure from Brauer, Menzel & Wüthrich (2025), arXiv:2510.04556v2. Replaces the heuristic RECALIBRATE/REFIT logic in `MonitoringReport` with a statistically principled three-way decision:
+
+- REDEPLOY: no statistically significant degradation detected
+- RECALIBRATE: global level shift (GMCB fires); apply `balance_factor` correction
+- REFIT: discrimination or local miscalibration (Gini or LMCB fires); rebuild on recent data
+
+Decision rules::
+
+    gini_sig OR lmcb_sig             -> REFIT
+    not gini_sig AND gmcb_sig        -> RECALIBRATE
+    nothing fires                    -> REDEPLOY
+
+Default alpha=0.32 (one-sigma rule) for all three tests, per paper Figure 8. At alpha=0.05
+the test has high Type II error for realistic insurance drift magnitudes.
+
+```python
+from insurance_monitoring import ModelMonitor
+
+monitor = ModelMonitor(distribution="poisson", n_bootstrap=500, random_state=0)
+monitor.fit(y_ref, y_hat, exposure)
+result = monitor.test(y_new, y_hat, exposure)
+print(result.decision)       # 'REDEPLOY' | 'RECALIBRATE' | 'REFIT'
+print(result.balance_factor) # apply to predictions for RECALIBRATE
+print(result.summary())      # governance-ready paragraph for MRC packs
+```
+
+`check_gmcb` and `check_lmcb` also available as standalone functions from
+`insurance_monitoring.calibration` for teams that want the bootstrap tests without the
+full monitoring framework.
+
+No new dependencies.
+
+
 ## v0.9.4 (2026-03-27)
 
 Documentation fixes — first-run UX audit.

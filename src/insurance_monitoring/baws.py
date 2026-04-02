@@ -92,7 +92,7 @@ class BAWSResult:
     selected_window: int
     var_estimate: float
     es_estimate: float
-    scores: dict
+    scores: dict[int, float]
     n_obs: int
     time_step: int
 
