@@ -141,8 +141,8 @@ class TwoForecastSDIResult:
         Two-sided p-value for H0: DSC(A) = DSC(B).
     combined_pvalue
         IU intersection-union combined p-value. Controls FWER: the combined
-        null (both MCB equal AND DSC equal) is rejected when
-        max(p_dm, 2*min(p_mcb_A, p_mcb_B)) < alpha.
+        null (both delta_MCB = 0 AND delta_DSC = 0) is rejected when
+        max(p_delta_mcb, p_delta_dsc) < alpha.
     """
 
     result_a: ScoreDecompositionResult
@@ -633,7 +633,9 @@ class ScoreDecompositionTest:
         p_ddsc = float(2 * (1 - norm.cdf(abs(t_ddsc))))
 
         # IU combined p-value: reject joint null when combined < alpha
-        combined_pvalue = float(max(p_dm, 2.0 * min(res_a.mcb_pvalue, res_b.mcb_pvalue)))
+        # Correct inputs are the delta_mcb and delta_dsc p-values, not the
+        # per-model MCB p-values.
+        combined_pvalue = float(max(p_dmcb, p_ddsc))
 
         return TwoForecastSDIResult(
             result_a=res_a,

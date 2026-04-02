@@ -468,3 +468,72 @@ class TestValidation:
         sdi = ScoreDecompositionTest(exposure=np.array([-1.0, 1.0, 1.0, 1.0, 1.0]))
         with pytest.raises(ValueError, match="strictly positive"):
             sdi.fit_single(np.ones(5), np.ones(5))
+
+
+# ---------------------------------------------------------------------------
+# Regression: IU combined p-value uses delta p-values, not per-model p-values
+# ---------------------------------------------------------------------------
+
+
+class TestCombinedPValueFormula:
+    """Regression test for the IU combined p-value bug.
+
+    The combined p-value must be max(p_delta_mcb, p_delta_dsc) — the maximum
+    of the two *delta* component p-values. The earlier, incorrect formula was
+    max(p_dm, 2*min(res_a.mcb_pvalue, res_b.mcb_pvalue)), which used the
+    individual per-model MCB p-values instead of the delta_mcb p-value
+    computed from the joint HAC covariance.
+    """
+
+    def test_combined_pvalue_equals_max_of_delta_pvalues(self):
+        """combined_pvalue must equal max(delta_mcb_pvalue, delta_dsc_pvalue)."""
+        rng = np.random.default_rng(42)
+        n = 1500
+        x = rng.uniform(0, 5, n)
+        mu = 1.0 + 2.0 * x
+        y = mu + rng.normal(0, 1.5, n)
+        # Two forecasts with different calibration errors
+        y_hat_a = mu * 1.1   # slight over-prediction
+        y_hat_b = mu * 0.9   # slight under-prediction
+
+        sdi = ScoreDecompositionTest(score_type="mse", hac_lags=0)
+        r = sdi.fit_two(y, y_hat_a, y_hat_b)
+
+        expected = max(r.delta_mcb_pvalue, r.delta_dsc_pvalue)
+        assert r.combined_pvalue == pytest.approx(expected, abs=1e-12), (
+            f"combined_pvalue={r.combined_pvalue:.6f} but "
+            f"max(delta_mcb_pvalue={r.delta_mcb_pvalue:.6f}, "
+            f"delta_dsc_pvalue={r.delta_dsc_pvalue:.6f})={expected:.6f}. "
+            "The IU combined p-value must use the delta component p-values."
+        )
+
+    def test_combined_pvalue_not_equal_individual_mcb_formula(self):
+        """The old (wrong) formula must NOT match the result for a non-trivial case."""
+        rng = np.random.default_rng(7)
+        n = 2000
+        x = rng.uniform(0, 5, n)
+        mu = 1.0 + 3.0 * x
+        y = mu + rng.normal(0, 2.0, n)
+        y_hat_a = mu * 1.2
+        y_hat_b = mu * 0.8
+
+        sdi = ScoreDecompositionTest(score_type="mse", hac_lags=0)
+        r = sdi.fit_two(y, y_hat_a, y_hat_b)
+
+        # Old (wrong) formula
+        p_dm = r.delta_score_pvalue
+        wrong_combined = max(p_dm, 2.0 * min(r.result_a.mcb_pvalue, r.result_b.mcb_pvalue))
+
+        # Correct formula
+        correct_combined = max(r.delta_mcb_pvalue, r.delta_dsc_pvalue)
+
+        # They should differ (the bug would have returned the wrong value)
+        assert r.combined_pvalue == pytest.approx(correct_combined, abs=1e-12), (
+            "combined_pvalue does not match max(delta_mcb_pvalue, delta_dsc_pvalue)"
+        )
+        # And for this dataset the two formulas produce different numbers
+        # (this confirms the test would have caught the old bug)
+        assert not np.isclose(wrong_combined, correct_combined, rtol=1e-6), (
+            "Old and new formulae give identical values for this dataset — "
+            "the regression test is not discriminative. Choose different data."
+        )
