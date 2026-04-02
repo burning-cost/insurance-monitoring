@@ -282,6 +282,41 @@ print(result.significant_features)  # which factors explain the performance shif
 
 ---
 
+
+---
+
+
+### ScoreDecompositionTest — asymptotic inference on Murphy decomposition components
+
+`ScoreDecompositionTest` decomposes a scoring rule into miscalibration (MCB), discrimination (DSC), and uncertainty (UNC) components with HAC standard errors, so you can formally test whether a model is miscalibrated vs. losing discrimination power — the distinction that drives the RECALIBRATE vs. REFIT decision.
+
+Based on Dimitriadis & Puke (arXiv:2603.04275). Supports MSE, MAE, and quantile scoring rules. For two competing forecasts, the two-sample test has higher power than a plain Diebold-Mariano test when models differ in only one dimension.
+
+```python
+import numpy as np
+from insurance_monitoring.calibration import ScoreDecompositionTest
+
+rng = np.random.default_rng(42)
+n = 5_000
+
+# Synthetic motor frequency: well-discriminating model with a calibration bias
+y_hat = rng.gamma(2, 0.05, n)
+exposure = rng.uniform(0.5, 1.5, n)
+y = rng.poisson(exposure * y_hat * 1.08) / exposure  # 8% bias
+
+sdi = ScoreDecompositionTest(score_type="mse")
+result = sdi.fit_single(y, y_hat)
+print(result.summary())
+# MCB=0 test:   FAIL (miscalibrated)  p=0.0001
+# DSC=0 test:   PASS (has skill)      p=0.0000
+
+# Compare champion vs challenger on the same holdout
+result_two = sdi.fit_two(y, y_hat, y_hat * 0.95)
+print(result_two.summary())
+```
+
+---
+
 ## Regulatory context
 
 **PRA SS1/23** (Model Risk Management, March 2023) requires insurers to maintain a model monitoring framework that detects deterioration in model performance. The expectation is documented thresholds, regular testing, and a governance process that escalates to the model risk committee when thresholds are breached. A/E ratio and Gini monitoring are the two metrics most commonly cited in SS1/23 supervisory discussions.
