@@ -139,4 +139,15 @@ __all__ = [
     "PITMonitor",
     "PITAlarm",
     "PITSummary",
+    # GMCB/LMCB standalone tests (v1.0.0)
+    "check_gmcb",
+    "check_lmcb",
+    "GMCBResult",
+    "LMCBResult",
 ]
+
+# ------------------------------------------------------------------
+# GMCB/LMCB standalone tests (v1.0.0)
+# ------------------------------------------------------------------
+from insurance_monitoring.calibration._gmcb_lmcb import check_gmcb, check_lmcb
+from insurance_monitoring.calibration._types import GMCBResult, LMCBResult

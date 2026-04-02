@@ -321,3 +321,75 @@ class CalibrationReport:
             ],
             how="horizontal",
         )
+
+
+@dataclass
+class GMCBResult:
+    """Result of the GMCB bootstrap test (Algorithm 4a, arXiv:2510.04556).
+
+    Tests H_0: GMCB = 0 — no global level shift.
+
+    Attributes
+    ----------
+    gmcb_score
+        Observed GMCB = D(y, y_hat) - D(y, alpha * y_hat). Always >= 0.
+    p_value
+        Bootstrap p-value. Fraction of null-distribution values >= gmcb_score.
+    is_significant
+        True if p_value < significance_level.
+    significance_level
+        Alpha level used for the is_significant flag.
+    n_bootstrap
+        Number of bootstrap replicates used.
+    balance_factor
+        alpha = sum(w * y) / sum(w * y_hat). Values > 1 indicate under-prediction.
+    """
+
+    gmcb_score: float
+    p_value: float
+    is_significant: bool
+    significance_level: float
+    n_bootstrap: int
+    balance_factor: float
+
+    def __repr__(self) -> str:
+        status = "SIGNIFICANT" if self.is_significant else "not significant"
+        return (
+            f"GMCBResult({status}: score={self.gmcb_score:.6f}, "
+            f"p={self.p_value:.4f}, alpha={self.balance_factor:.4f})"
+        )
+
+
+@dataclass
+class LMCBResult:
+    """Result of the LMCB bootstrap test (Algorithm 4b, arXiv:2510.04556).
+
+    Tests H_0: LMCB = 0 — no local cohort-level miscalibration.
+
+    Attributes
+    ----------
+    lmcb_score
+        Observed LMCB = D(y, y_hat_bc) - D(y, y_hat_bc_rc). Negative values
+        indicate the model's ranking is inversely correlated with outcomes.
+    p_value
+        Bootstrap p-value. Fraction of null-distribution values >= lmcb_score.
+    is_significant
+        True if p_value < significance_level.
+    significance_level
+        Alpha level used for the is_significant flag.
+    n_bootstrap
+        Number of bootstrap replicates used.
+    """
+
+    lmcb_score: float
+    p_value: float
+    is_significant: bool
+    significance_level: float
+    n_bootstrap: int
+
+    def __repr__(self) -> str:
+        status = "SIGNIFICANT" if self.is_significant else "not significant"
+        return (
+            f"LMCBResult({status}: score={self.lmcb_score:.6f}, "
+            f"p={self.p_value:.4f})"
+        )

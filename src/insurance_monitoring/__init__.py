@@ -321,6 +321,8 @@ from insurance_monitoring.pricing_drift import (
     PricingDriftResult,
     CalibTestResult,
 )
+from insurance_monitoring.model_monitor import ModelMonitor, ModelMonitorResult
+from insurance_monitoring.calibration import check_gmcb, check_lmcb, GMCBResult, LMCBResult
 from insurance_monitoring.cusum import (
     CalibrationCUSUM,
     CUSUMAlarm,
@@ -414,6 +416,13 @@ __all__ = [
     "CalibrationCUSUM",
     "CUSUMAlarm",
     "CUSUMSummary",
+    # integrated model monitoring framework (v1.0.0)
+    "ModelMonitor",
+    "ModelMonitorResult",
+    "check_gmcb",
+    "check_lmcb",
+    "GMCBResult",
+    "LMCBResult",
     # MLflow integration (optional -- requires mlflow)
     "MonitoringTracker",
 ]
