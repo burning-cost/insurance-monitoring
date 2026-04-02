@@ -1,15 +1,15 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # insurance-monitoring v0.12.0 — ConformedControlChart and ConformedProcessMonitor
+# MAGIC # insurance-monitoring v1.2.0 — ScoreDecompositionTest
 # MAGIC
-# MAGIC Runs the full test suite for the new `conformal_spc` module added in v0.12.0,
+# MAGIC Runs the full test suite for the new `_score_decomp` module added in v1.2.0,
 # MAGIC plus all existing tests to verify no regressions.
 # MAGIC
-# MAGIC Reference: Burger (2025), arXiv:2512.23602.
+# MAGIC Reference: Dimitriadis & Puke (2026), arXiv:2603.04275.
 
 # COMMAND ----------
 
-# MAGIC %pip install polars>=1.0 scipy>=1.12 sortedcontainers>=2.4 scikit-learn pytest pytest-cov
+# MAGIC %pip install polars>=1.0 scipy>=1.12 sortedcontainers>=2.4 statsmodels>=0.14 scikit-learn pytest pytest-cov matplotlib
 
 # COMMAND ----------
 
@@ -29,17 +29,17 @@ print(result.stderr[-2000:] if result.stderr else "")
 import subprocess
 import sys
 
-# Run only the new conformal_spc tests first for fast feedback
+# Run only the new score decomp tests first for fast feedback
 result = subprocess.run(
     [
         sys.executable, "-m", "pytest",
-        "/Workspace/insurance-monitoring/tests/test_conformal_spc.py",
+        "/Workspace/insurance-monitoring/tests/test_score_decomp.py",
         "-v", "--tb=short", "--no-header",
     ],
     capture_output=True, text=True,
     cwd="/Workspace/insurance-monitoring",
 )
-print(result.stdout[-5000:])
+print(result.stdout[-6000:])
 print(result.stderr[-2000:] if result.stderr else "")
 
 # COMMAND ----------
@@ -68,7 +68,7 @@ full_passed = result_full.returncode == 0
 summary_lines = []
 for line in result.stdout.split("\n"):
     if "passed" in line or "failed" in line or "error" in line.lower():
-        summary_lines.append(f"[conformal_spc] {line}")
+        summary_lines.append(f"[score_decomp] {line}")
 
 for line in result_full.stdout.split("\n"):
     if "passed" in line or "failed" in line or "error" in line.lower():
@@ -78,7 +78,7 @@ summary = "\n".join(summary_lines) if summary_lines else "No summary lines found
 print(summary)
 
 if not passed:
-    raise RuntimeError("conformal_spc tests FAILED — see output above.")
+    raise RuntimeError("score_decomp tests FAILED — see output above.")
 if not full_passed:
     raise RuntimeError("Full test suite FAILED — see output above.")
 

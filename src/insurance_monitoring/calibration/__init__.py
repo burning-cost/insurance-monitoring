@@ -27,6 +27,11 @@ This package consolidates two calibration layers:
    - :class:`PITAlarm` — Result returned by PITMonitor.update()
    - :class:`PITSummary` — Full monitoring state snapshot
 
+4. **Score decomposition inference** (v1.2.0, arXiv:2603.04275):
+   - :class:`ScoreDecompositionTest` — Asymptotic MCB/DSC tests with HAC SEs.
+     Single-forecast and two-forecast (MCB vs MCB, DSC vs DSC) comparisons.
+   - Result types: :class:`ScoreDecompositionResult`, :class:`TwoForecastSDIResult`
+
 The A/E layer is appropriate for routine monitoring (monthly/quarterly dashboards).
 The calibration suite is for model sign-off, root-cause diagnosis, and rectification.
 PITMonitor is for ongoing production monitoring with formal type I error control.
@@ -58,6 +63,16 @@ Quick start
     alarm = monitor.update(float(poisson.cdf(y_claims, mu=exposure * lambda_hat)))
     if alarm:
         print(f"Calibration shift detected at step {alarm.time}")
+
+    # Score decomposition with hypothesis tests
+    from insurance_monitoring.calibration import ScoreDecompositionTest
+    sdi = ScoreDecompositionTest(score_type='mse')
+    result = sdi.fit_single(y_holdout, y_hat_holdout)
+    print(result.summary())
+
+    # Two-model comparison: which model is miscalibrated vs undiscriminating?
+    comparison = sdi.fit_two(y_holdout, y_hat_champion, y_hat_challenger)
+    print(comparison.delta_mcb_pvalue, comparison.delta_dsc_pvalue)
 """
 
 from __future__ import annotations
@@ -105,6 +120,21 @@ from insurance_monitoring.calibration._plots import (
 # ------------------------------------------------------------------
 from insurance_monitoring.calibration._pit import PITMonitor, PITAlarm, PITSummary
 
+# ------------------------------------------------------------------
+# GMCB/LMCB standalone tests (v1.0.0)
+# ------------------------------------------------------------------
+from insurance_monitoring.calibration._gmcb_lmcb import check_gmcb, check_lmcb
+from insurance_monitoring.calibration._types import GMCBResult, LMCBResult
+
+# ------------------------------------------------------------------
+# Score decomposition with inference (v1.2.0, arXiv:2603.04275)
+# ------------------------------------------------------------------
+from insurance_monitoring.calibration._score_decomp import (
+    ScoreDecompositionTest,
+    ScoreDecompositionResult,
+    TwoForecastSDIResult,
+)
+
 __all__ = [
     # A/E monitoring
     "ae_ratio",
@@ -144,10 +174,8 @@ __all__ = [
     "check_lmcb",
     "GMCBResult",
     "LMCBResult",
+    # Score decomposition with inference (v1.2.0)
+    "ScoreDecompositionTest",
+    "ScoreDecompositionResult",
+    "TwoForecastSDIResult",
 ]
-
-# ------------------------------------------------------------------
-# GMCB/LMCB standalone tests (v1.0.0)
-# ------------------------------------------------------------------
-from insurance_monitoring.calibration._gmcb_lmcb import check_gmcb, check_lmcb
-from insurance_monitoring.calibration._types import GMCBResult, LMCBResult
