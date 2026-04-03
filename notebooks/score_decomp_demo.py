@@ -284,9 +284,9 @@ print("Figure saved to /tmp/score_decomp_temporal.png")
 
 # COMMAND ----------
 # MAGIC %md
-# MAGIC ## 7. Quantile score decomposition for reserve adequacy (SS1/23 context)
+# MAGIC ## 7. Quantile score decomposition for reserve adequacy
 # MAGIC
-# MAGIC UK PRA SS1/23 (Internal Model Validation) requires VaR/ES backtesting.
+# MAGIC Solvency II Article 120-126 requires internal model validation including VaR/ES backtesting.
 # MAGIC For a 75th-percentile reserve adequacy test (whether the model's 75th
 # MAGIC percentile correctly covers observed losses), we can use the quantile
 # MAGIC score decomposition.
