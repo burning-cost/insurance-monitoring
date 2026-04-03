@@ -8,7 +8,9 @@
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/burning-cost/burning-cost-examples/blob/main/notebooks/burning-cost-in-30-minutes.ipynb)
 [![nbviewer](https://img.shields.io/badge/render-nbviewer-orange)](https://nbviewer.org/github/burning-cost/insurance-monitoring/blob/main/notebooks/quickstart.ipynb)
 
-**Production model monitoring for UK insurance pricing — PSI, Gini drift, Murphy decomposition, and anytime-valid A/B testing in one package.**
+> Production model monitoring for UK insurance pricing — PSI, Gini drift, Murphy decomposition, and anytime-valid A/B testing in one package. Tells you whether to redeploy, recalibrate, or refit.
+
+**Blog post:** [Insurance Model Monitoring: Beyond Generic Drift Detection](https://burning-cost.github.io/2026/03/21/insurance-model-monitoring-beyond-generic-drift/)
 
 ---
 
@@ -16,7 +18,7 @@
 
 A pricing model that is 15% cheap on young drivers and 15% expensive on mature drivers reads 1.00 at portfolio level — and triggers no alarm. The loss ratio deteriorates twelve months later.
 
-The PRA expects regulated insurers to have model risk management frameworks (SS1/23, while primarily aimed at banks, is widely adopted as the de facto standard for insurers) — and that framework should have caught this first. Standard monitoring approaches fail in three specific ways:
+PRA SoP3/24 requires an annual attestation (IMOR) that model governance and monitoring are in place. Consumer Duty (PS22/9) requires ongoing evidence that pricing outcomes are fair across customer groups. Standard monitoring approaches fail both obligations in three specific ways:
 
 - **Portfolio-level A/E hides segmental drift.** Per-feature distribution shifts and model discrimination drift are invisible to a single headline ratio.
 - **Repeated monthly testing inflates false positives.** Running Hosmer-Lemeshow or A/E tests each month means a perfectly calibrated model will trigger a false alarm roughly 40% of the time within a year at α=0.05.
@@ -26,11 +28,21 @@ The PRA expects regulated insurers to have model risk management frameworks (SS1
 
 ---
 
-## Part of the Burning Cost stack
+## Installation
 
-Takes the outputs of any fitted pricing model and a stream of actual experience. Feeds drift signals and calibration verdicts into [insurance-governance](https://github.com/burning-cost/insurance-governance) for model risk committee packs. Pairs with [insurance-fairness](https://github.com/burning-cost/insurance-fairness) to monitor per-protected-group A/E ratios under Consumer Duty. See the [full stack](https://burning-cost.github.io/stack/).
+```bash
+pip install insurance-monitoring
+# or
+uv add insurance-monitoring
+```
 
-**Blog post:** [Insurance Model Monitoring: Beyond Generic Drift Detection](https://burning-cost.github.io/2026/03/21/insurance-model-monitoring-beyond-generic-drift/)
+**Dependencies:** polars, numpy, scipy, matplotlib
+
+MLflow integration (optional):
+
+```bash
+pip install insurance-monitoring[mlflow]
+```
 
 ---
 
@@ -38,9 +50,7 @@ Takes the outputs of any fitted pricing model and a stream of actual experience.
 
 ```python
 import numpy as np
-import polars as pl
 from insurance_monitoring import MonitoringReport
-from insurance_monitoring.drift import psi
 
 rng = np.random.default_rng(42)
 # Training period — well-calibrated model
@@ -64,21 +74,9 @@ See `examples/` for fully worked scenarios: `model_monitor_quickstart.py` (the v
 
 ---
 
-## Installation
+## Part of the Burning Cost toolkit
 
-```bash
-pip install insurance-monitoring
-# or
-uv add insurance-monitoring
-```
-
-**Dependencies:** polars, numpy, scipy, matplotlib
-
-MLflow integration (optional):
-
-```bash
-pip install insurance-monitoring[mlflow]
-```
+Takes the outputs of any fitted pricing model and a stream of actual experience. Feeds drift signals and calibration verdicts into [insurance-governance](https://github.com/burning-cost/insurance-governance) for model risk committee packs. Pairs with [insurance-fairness](https://github.com/burning-cost/insurance-fairness) to monitor per-protected-group A/E ratios under Consumer Duty. → [See the full stack](https://burning-cost.github.io/stack/)
 
 ---
 
@@ -87,7 +85,7 @@ pip install insurance-monitoring[mlflow]
 | Task | Manual approach | insurance-monitoring |
 |------|----------------|----------------------|
 | Population Stability Index | Excel macro per factor, re-coded each quarter, unweighted | `psi()` / `csi()` — exposure-weighted, Polars-native, traffic-light band |
-| Feature drift heatmap | Engineer writes one-off script; no standard thresholds | `csi()` — one call, all rating factors, PRA-aligned thresholds |
+| Feature drift heatmap | Engineer writes one-off script; no standard thresholds | `csi()` — one call, all rating factors, documented thresholds |
 | A/E ratio with CI | Custom formula in SQL, no confidence interval | `ae_ratio_ci()` — Wilson CI, exposure-weighted, RAG status |
 | Discrimination drift | Gini computed ad hoc; no test for statistical significance | `gini_drift_test()` / `GiniDriftBootstrapTest` — bootstrap CI, governance plot |
 | RECALIBRATE vs REFIT decision | Actuary judgment call, not documented | `ModelMonitor` — Gini + GMCB + LMCB bootstrap tests (arXiv 2510.04556), structured three-way decision |
@@ -282,10 +280,6 @@ print(result.significant_features)  # which factors explain the performance shif
 
 ---
 
-
----
-
-
 ### ScoreDecompositionTest — asymptotic inference on Murphy decomposition components
 
 `ScoreDecompositionTest` decomposes a scoring rule into miscalibration (MCB), discrimination (DSC), and uncertainty (UNC) components with HAC standard errors, so you can formally test whether a model is miscalibrated vs. losing discrimination power — the distinction that drives the RECALIBRATE vs. REFIT decision.
@@ -319,7 +313,9 @@ print(result_two.summary())
 
 ## Regulatory context
 
-**PRA SS1/23** (Model Risk Management, March 2023) requires insurers to maintain a model monitoring framework that detects deterioration in model performance. The expectation is documented thresholds, regular testing, and a governance process that escalates to the model risk committee when thresholds are breached. A/E ratio and Gini monitoring are the two metrics most commonly cited in SS1/23 supervisory discussions.
+**PRA SoP3/24** requires an annual IMOR attestation from PRA-regulated insurers covering model governance, validation, and monitoring. The outputs of `ModelMonitor` and `MonitoringReport` are structured to feed directly into IMOR evidence packs: documented thresholds, RAG status, and a governance-ready summary paragraph for each model.
+
+> Note: PRA SS1/23 (*Model Risk Management Principles for Banks*) is a banking supervisory statement — it does not apply directly to Solvency II insurers. The mandatory monitoring obligations for GI pricing teams are SoP3/24 (PRA side) and Consumer Duty PS22/9 (FCA side). Many insurer MRM frameworks reference SS1/23 as useful practice guidance; this library is structured to meet those conventions where they add value.
 
 **Consumer Duty (PS22/9)** requires ongoing monitoring of whether pricing outcomes are fair across customer groups. The combination of `MonitoringReport` and [insurance-fairness](https://github.com/burning-cost/insurance-fairness) `calibration_by_group()` produces a per-protected-group A/E split suitable for Consumer Duty Outcome 4 monitoring.
 
@@ -350,7 +346,7 @@ On a 50,000-policy synthetic UK motor portfolio:
 
 **Regulatory instruments**
 
-- PRA. (2023). *Model Risk Management Principles for Banks* (SS1/23). Prudential Regulation Authority, Bank of England. [www.bankofengland.co.uk/prudential-regulation/publication/2023/may/model-risk-management-principles-for-banks-ss](https://www.bankofengland.co.uk/prudential-regulation/publication/2023/may/model-risk-management-principles-for-banks-ss)
+- PRA. (2024). *Statement of Policy: Expectations for Insurers' Actuarial Function* (SoP3/24). Prudential Regulation Authority. [www.bankofengland.co.uk/prudential-regulation/publication/2024](https://www.bankofengland.co.uk/prudential-regulation/publication/2024)
 - FCA. (2023). *Consumer Duty: Final rules and guidance* (PS22/9). Financial Conduct Authority. [www.fca.org.uk/publications/policy-statements/ps22-9-new-consumer-duty](https://www.fca.org.uk/publications/policy-statements/ps22-9-new-consumer-duty)
 
 **Population Stability Index and score monitoring**
@@ -375,12 +371,14 @@ On a 50,000-policy synthetic UK motor portfolio:
 | Library | What it does |
 |---------|-------------|
 | [insurance-fairness](https://github.com/burning-cost/insurance-fairness) | Per-protected-group A/E calibration, proxy detection, Consumer Duty audit reports |
-| [insurance-causal](https://github.com/burning-cost/insurance-causal) | Double ML — establishes whether a rating factor causally drives risk or is a proxy |
+| [insurance-causal-policy](https://github.com/burning-cost/insurance-causal-policy) | SDID causal inference — establishes whether a rate change caused an outcome shift |
 | [insurance-governance](https://github.com/burning-cost/insurance-governance) | Model risk committee packs and FCA Consumer Duty documentation |
 | [insurance-gam](https://github.com/burning-cost/insurance-gam) | Interpretable GLM-style models whose factors can be monitored directly |
 
 ---
 
-> Questions or feedback? Start a [Discussion](https://github.com/burning-cost/insurance-monitoring/discussions). Found it useful? A star helps others find it.
+Part of the [Burning Cost](https://burning-cost.github.io) open-source insurance analytics toolkit. → [See all libraries](https://burning-cost.github.io/stack/)
+
+> Questions or feedback? Start a [Discussion](https://github.com/burning-cost/insurance-monitoring/discussions). Found it useful? A [GitHub star](https://github.com/burning-cost/insurance-monitoring) helps others find it.
 
 **Need help implementing this in production?** [Talk to us](https://burning-cost.github.io/work-with-us/).
