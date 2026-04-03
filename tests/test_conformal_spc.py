@@ -372,6 +372,9 @@ class TestConformedProcessMonitorInit:
             ConformedProcessMonitor(detector="unsupported_method")
 
     def test_valid_detector_strings(self):
+        # These strings trigger sklearn imports at fit()-time. Guard the test
+        # so it is skipped when sklearn is not installed.
+        pytest.importorskip("sklearn")
         for det in ("ocsvm", "isolation_forest"):
             m = ConformedProcessMonitor(detector=det)
             assert m.detector == det

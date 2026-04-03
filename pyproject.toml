@@ -35,6 +35,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-cov", "pdoc>=14.0.0", "pandas>=2.0"]
 mlflow = ["mlflow>=3.0", "pyarrow>=14.0"]
+sklearn = ["scikit-learn>=1.3"]
 
 [project.urls]
 Homepage = "https://burning-cost.github.io/"
