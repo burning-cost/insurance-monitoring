@@ -997,6 +997,10 @@ mlflow = [
     { name = "mlflow" },
     { name = "pyarrow" },
 ]
+sklearn = [
+    { name = "scikit-learn", version = "1.7.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "scikit-learn", version = "1.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -1009,11 +1013,12 @@ requires-dist = [
     { name = "pyarrow", marker = "extra == 'mlflow'", specifier = ">=14.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-cov", marker = "extra == 'dev'" },
+    { name = "scikit-learn", marker = "extra == 'sklearn'", specifier = ">=1.3" },
     { name = "scipy", specifier = ">=1.12" },
     { name = "sortedcontainers", specifier = ">=2.4" },
     { name = "statsmodels", specifier = ">=0.14" },
 ]
-provides-extras = ["dev", "mlflow"]
+provides-extras = ["dev", "mlflow", "sklearn"]
 
 [[package]]
 name = "itsdangerous"
