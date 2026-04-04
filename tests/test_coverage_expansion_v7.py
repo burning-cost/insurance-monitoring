@@ -328,7 +328,7 @@ def test_drift_attribution_result_has_field(field_name):
     val = r[field_name]
     expected_val = getattr(r, field_name)
     if isinstance(val, pl.DataFrame):
-        assert val.frame_equal(expected_val)
+        assert val.equals(expected_val)
     else:
         assert val == expected_val
 

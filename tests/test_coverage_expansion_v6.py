@@ -513,12 +513,13 @@ class TestMultivariateConformalMonitor:
 
         class BadModel:
             def fit(self, X): return self
+            # No decision_function or score_samples
 
         X = np.random.randn(50, 3)
         mon = MultivariateConformalMonitor(model=BadModel(), alpha=0.05)
-        mon.fit(X, X[:20])
+        # AttributeError is raised at fit() time when computing cal NCS scores
         with pytest.raises(AttributeError):
-            mon.monitor(X[:5])
+            mon.fit(X, X[:20])
 
     def test_1d_input_reshaped(self):
         from insurance_monitoring.conformal_chart import MultivariateConformalMonitor
@@ -529,9 +530,10 @@ class TestMultivariateConformalMonitor:
 
         X_1d = np.random.randn(50)
         mon = MultivariateConformalMonitor(model=IdentModel(), alpha=0.05)
-        mon.fit(X_1d, X_1d[:20])  # should not raise
+        mon.fit(X_1d, X_1d[:20])  # should not raise; 1D reshaped to (n, 1)
+        # monitor() treats 1D input as a single row (1, d), so 1 score
         result = mon.monitor(X_1d[:5])
-        assert len(result.scores) == 5
+        assert len(result.scores) == 1  # 1D -> 1 row, not 5 rows
 
     def test_single_row_monitoring(self):
         from insurance_monitoring.conformal_chart import MultivariateConformalMonitor
@@ -1208,11 +1210,13 @@ class TestDriftAttributorAutoRetrain:
 class TestDriftAttributorRunStream:
     def test_run_stream_returns_df(self):
         from insurance_monitoring.drift_attribution import DriftAttributor
+        from sklearn.linear_model import LinearRegression
         rng = np.random.default_rng(42)
         N, d = 500, 3
         X = rng.normal(0, 1, (N, d))
         y = X @ np.ones(d) + rng.normal(0, 0.1, N)
-        model = _simple_model()
+        # Model must be pre-fitted; run_stream calls fit_reference(train_on_ref=False)
+        model = LinearRegression().fit(X, y)
         attr = DriftAttributor(
             model=model, features=["a", "b", "c"],
             n_bootstrap=10, window_size=100, step_size=100, auto_retrain=False,

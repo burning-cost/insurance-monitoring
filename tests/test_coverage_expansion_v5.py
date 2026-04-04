@@ -62,8 +62,9 @@ class TestAERatioComprehensive:
         y_hat = rng.gamma(2, 0.05, n)
         exposure = rng.uniform(0.5, 2.0, n)
         inflation = 1.3
-        y = rng.poisson(y_hat * exposure * inflation).astype(float) / exposure
-        result = ae_ratio(y, y_hat, exposure=exposure)
+        # y is claim counts (not rates); ae_ratio(counts, rates, exposure) = sum(counts) / sum(rates * exposure)
+        counts = rng.poisson(y_hat * exposure * inflation).astype(float)
+        result = ae_ratio(counts, y_hat, exposure=exposure)
         assert abs(result - inflation) < 0.05, f"AE ratio {result:.3f} should be ~{inflation}"
 
     def test_ae_ratio_without_exposure_uses_counts(self):
@@ -162,11 +163,12 @@ class TestCalibrationCurveComprehensive:
         n = 5000
         p = rng.uniform(0.0, 1.0, n)
         y = rng.binomial(1, p)
-        frac_pos, mean_pred = calibration_curve(y.astype(float), p)
-        # For perfect calibration, the curve should be close to diagonal
-        assert len(frac_pos) == len(mean_pred)
-        assert np.all(np.isfinite(frac_pos))
-        assert np.all(np.isfinite(mean_pred))
+        df = calibration_curve(y.astype(float), p)
+        # calibration_curve returns a DataFrame with mean_predicted and mean_actual columns
+        assert "mean_predicted" in df.columns
+        assert "mean_actual" in df.columns
+        assert np.all(np.isfinite(df["mean_predicted"].to_numpy()))
+        assert np.all(np.isfinite(df["mean_actual"].to_numpy()))
 
     def test_overconfident_curve_above_diagonal(self):
         """Overconfident model: predicted p > actual rate."""
@@ -177,7 +179,9 @@ class TestCalibrationCurveComprehensive:
         y = rng.binomial(1, p_true)
         p_pred = p_true * 2.0  # predictions 2x too high
         p_pred = np.clip(p_pred, 0, 1)
-        frac_pos, mean_pred = calibration_curve(y.astype(float), p_pred)
+        df = calibration_curve(y.astype(float), p_pred)
+        mean_pred = df["mean_predicted"].to_numpy()
+        frac_pos = df["mean_actual"].to_numpy()
         # Mean predicted should be higher than fraction positive on average
         if len(mean_pred) > 0 and len(frac_pos) > 0:
             assert np.mean(mean_pred) > np.mean(frac_pos) * 0.8  # loose check
@@ -189,13 +193,11 @@ class TestCalibrationCurveComprehensive:
         n = 2000
         p = rng.uniform(0.01, 0.5, n)
         y = rng.binomial(1, p)
-        try:
-            frac_pos, mean_pred = calibration_curve(y.astype(float), p, n_bins=n_bins)
-            assert len(frac_pos) <= n_bins
-        except TypeError:
-            # May not accept n_bins kwarg
-            frac_pos, mean_pred = calibration_curve(y.astype(float), p)
-        assert len(frac_pos) == len(mean_pred)
+        # calibration_curve returns a pl.DataFrame with mean_predicted, mean_actual columns
+        df = calibration_curve(y.astype(float), p, n_bins=n_bins)
+        assert len(df) <= n_bins
+        assert "mean_predicted" in df.columns
+        assert "mean_actual" in df.columns
 
 
 # ===========================================================================
@@ -214,14 +216,15 @@ class TestAutoCalibrationComprehensive:
         from insurance_monitoring.calibration import check_auto_calibration
         y, yp, e = _poisson_book(n=2000, seed=1)
         result = check_auto_calibration(y, yp, e)
-        assert hasattr(result, "passes")
+        assert hasattr(result, "is_calibrated")
 
     def test_autocal_result_has_slope(self):
         from insurance_monitoring.calibration import check_auto_calibration, AutoCalibResult
         y, yp, e = _poisson_book(n=2000, seed=2)
         result = check_auto_calibration(y, yp, e)
-        if isinstance(result, AutoCalibResult):
-            assert hasattr(result, "slope") or hasattr(result, "recalib_slope")
+        # AutoCalibResult has mcb_score and is_calibrated, not slope
+        assert isinstance(result, AutoCalibResult)
+        assert hasattr(result, "mcb_score") or hasattr(result, "is_calibrated")
 
     def test_miscalibrated_may_fail(self):
         from insurance_monitoring.calibration import check_auto_calibration
@@ -240,22 +243,23 @@ class TestRectifyBalanceComprehensive:
     def test_output_length_matches_input(self):
         from insurance_monitoring.calibration import rectify_balance
         y, yp, e = _poisson_book(n=1000, seed=0)
-        result = rectify_balance(y, yp, e)
+        result = rectify_balance(yp, y, e)
         assert len(result) == len(yp)
 
     def test_output_is_positive(self):
         from insurance_monitoring.calibration import rectify_balance
         y, yp, e = _poisson_book(n=1000, seed=1)
-        result = rectify_balance(y, yp, e)
+        result = rectify_balance(yp, y, e)
         assert np.all(result > 0)
 
     def test_rectified_ae_closer_to_one(self):
         """Rectified predictions should have AE ratio closer to 1."""
-        from insurance_monitoring.calibration import rectify_balance, ae_ratio
+        from insurance_monitoring.calibration import rectify_balance
         y, yp, e = _poisson_book(n=5000, seed=2, inflation=1.3)
-        ae_before = ae_ratio(y, yp, e)
-        yp_rect = rectify_balance(y, yp, e)
-        ae_after = ae_ratio(y, yp_rect, e)
+        # Proper exposure-weighted AE: sum(e * y) / sum(e * yp)
+        ae_before = float(np.sum(e * y) / np.sum(e * yp))
+        yp_rect = rectify_balance(yp, y, e)
+        ae_after = float(np.sum(e * y) / np.sum(e * yp_rect))
         assert abs(ae_after - 1.0) <= abs(ae_before - 1.0) + 0.01
 
 
@@ -333,7 +337,7 @@ class TestMurphyDecompositionComprehensive:
 
 
 class TestDevianceComprehensive:
-    @pytest.mark.parametrize("family", ["poisson", "gaussian"])
+    @pytest.mark.parametrize("family", ["poisson", "normal"])
     def test_deviance_nonnegative(self, family):
         from insurance_monitoring.calibration import deviance
         rng = _rng(0)
@@ -344,10 +348,10 @@ class TestDevianceComprehensive:
         else:
             mu = rng.normal(5, 1, n)
             y = mu + rng.normal(0, 0.5, n)
-        result = deviance(y, mu, family=family)
+        result = deviance(y, mu, distribution=family)
         assert np.isfinite(result)
 
-    @pytest.mark.parametrize("family", ["poisson", "gaussian"])
+    @pytest.mark.parametrize("family", ["poisson", "normal"])
     def test_deviance_zero_at_perfect_fit(self, family):
         """Saturated model (y_hat = y) should give deviance = 0."""
         from insurance_monitoring.calibration import deviance
@@ -357,11 +361,11 @@ class TestDevianceComprehensive:
             y = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         # For Poisson: deviance = 0 when y_hat = y (saturation)
         # We test that deviance at truth is smaller than at a wrong value
-        result_truth = deviance(y, y, family=family)
+        result_truth = deviance(y, y, distribution=family)
         wrong = y * 2.0
-        if family == "gaussian":
+        if family == "normal":
             wrong = y + 1.0
-        result_wrong = deviance(y, wrong, family=family)
+        result_wrong = deviance(y, wrong, distribution=family)
         assert result_truth <= result_wrong
 
 
@@ -374,14 +378,17 @@ class TestGiniDriftTestStatistical:
     def test_null_distribution_not_uniformly_significant(self):
         """Under H0, the test should not always fire."""
         from insurance_monitoring import GiniDriftTest
-        # Run 10 simulations under H0 and count significant results
+        # GiniDriftTest takes all data in __init__; call .test() with no args
         significant_count = 0
         for sim in range(10):
             y_ref, yp_ref, e_ref = _poisson_book(n=2000, seed=sim * 2)
             y_new, yp_new, e_new = _poisson_book(n=2000, seed=sim * 2 + 1)
-            test = GiniDriftTest(n_bootstrap=99, alpha=0.05, random_state=sim)
-            test.fit(y_ref, yp_ref, e_ref)
-            result = test.test(y_new, yp_new, e_new)
+            test = GiniDriftTest(
+                reference_actual=y_ref, reference_predicted=yp_ref, reference_exposure=e_ref,
+                monitor_actual=y_new, monitor_predicted=yp_new, monitor_exposure=e_new,
+                n_bootstrap=99, alpha=0.05, random_state=sim,
+            )
+            result = test.test()
             if result.significant:
                 significant_count += 1
         # With alpha=0.05, expect ~0.5 significant out of 10
@@ -394,10 +401,14 @@ class TestGiniDriftTestStatistical:
         from insurance_monitoring import GiniDriftTest
         y_ref, yp_ref, e_ref = _poisson_book(n=1000, seed=0)
         y_new, yp_new, e_new = _poisson_book(n=1000, seed=1)
-        test = GiniDriftTest(n_bootstrap=99, random_state=0)
-        test.fit(y_ref, yp_ref, e_ref)
-        result = test.test(y_new, yp_new, e_new)
-        assert np.isfinite(result.gini_change)
+        test = GiniDriftTest(
+            reference_actual=y_ref, reference_predicted=yp_ref, reference_exposure=e_ref,
+            monitor_actual=y_new, monitor_predicted=yp_new, monitor_exposure=e_new,
+            n_bootstrap=99, random_state=0,
+        )
+        result = test.test()
+        # GiniDriftTestResult uses 'delta' for the Gini change, not 'gini_change'
+        assert np.isfinite(result.delta)
 
 
 # ===========================================================================
@@ -591,7 +602,7 @@ class TestGiniDriftTestOnesampleComprehensive:
         n = 1000
         y_true = rng.poisson(0.1, n).astype(float)
         y_pred = rng.gamma(2, 0.05, n)
-        result = gini_drift_test_onesample(y_true, y_pred, ref_gini=0.4, n_bootstrap=99, seed=0)
+        result = gini_drift_test_onesample(0.4, y_true, y_pred, n_bootstrap=99)
         assert hasattr(result, "gini_change")
         assert np.isfinite(result.gini_change)
 
@@ -601,7 +612,7 @@ class TestGiniDriftTestOnesampleComprehensive:
         n = 1000
         y_true = rng.poisson(0.1, n).astype(float)
         y_pred = rng.gamma(2, 0.05, n)
-        result = gini_drift_test_onesample(y_true, y_pred, ref_gini=0.4, n_bootstrap=99, seed=0)
+        result = gini_drift_test_onesample(0.4, y_true, y_pred, n_bootstrap=99)
         if hasattr(result, "p_value"):
             assert 0 <= result.p_value <= 1
 
@@ -618,9 +629,7 @@ class TestGiniDriftTestOnesampleComprehensive:
 
         current_gini = gini_coefficient(y_true, y_pred)
         # Reference Gini is 0 (uninformative) — should detect large difference
-        result = gini_drift_test_onesample(
-            y_true, y_pred, ref_gini=0.0, n_bootstrap=99, seed=0
-        )
+        result = gini_drift_test_onesample(0.0, y_true, y_pred, n_bootstrap=99)
         # Large difference should be detected
         assert result.gini_change > 0.05 or True  # lenient
 
@@ -631,7 +640,7 @@ class TestGiniDriftTestOnesampleComprehensive:
         n = 500
         y_true = rng.poisson(0.1, n).astype(float)
         y_pred = rng.gamma(2, 0.05, n)
-        result = gini_drift_test_onesample(y_true, y_pred, ref_gini=ref_gini, n_bootstrap=50, seed=0)
+        result = gini_drift_test_onesample(ref_gini, y_true, y_pred, n_bootstrap=50)
         assert isinstance(result, GiniDriftOneSampleResult)
 
 

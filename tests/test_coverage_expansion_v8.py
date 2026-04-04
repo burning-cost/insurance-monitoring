@@ -172,7 +172,7 @@ class TestDriftAttributorHelpers:
         fill = np.zeros(2)
 
         # delta([], k=0) = R^{} - R^{0}: feature 0 reduces loss significantly
-        d = _delta(model, X, y, [], [0], [0, 1], fill, "mse")
+        d = _delta(model, X, y, [], 0, [0, 1], fill, "mse")
         assert d > 0  # adding feature 0 reduces loss
 
 
