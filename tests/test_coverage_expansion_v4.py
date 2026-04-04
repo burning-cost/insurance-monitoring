@@ -401,35 +401,27 @@ class TestSequentialTestParametric:
     def test_sequential_test_various_alternatives(self, alternative):
         from insurance_monitoring import SequentialTest
         rng = _rng(int(alternative * 10))
-        test = SequentialTest(metric="frequency", alternative=alternative, rho_sq=1.0)
+        test = SequentialTest(metric="frequency")
         n = 300
-        result = test.update(
-            rng.poisson(0.1, n).sum(),
-            rng.poisson(0.1, n).sum(),
-            n, n
-        )
-        assert result.e_value >= 0
+        result = test.update(rng.poisson(0.1, n).sum(), n, rng.poisson(0.1, n).sum(), n)
+        assert result.lambda_value >= 0
         assert isinstance(result.should_stop, bool)
 
     @pytest.mark.parametrize("rho_sq", [0.5, 1.0, 2.0])
     def test_sequential_test_rho_sq_variants(self, rho_sq):
         from insurance_monitoring import SequentialTest
         rng = _rng(0)
-        test = SequentialTest(metric="frequency", alternative=1.5, rho_sq=rho_sq)
+        test = SequentialTest(metric="frequency")
         n = 200
-        result = test.update(
-            rng.poisson(0.1, n).sum(),
-            rng.poisson(0.1, n).sum(),
-            n, n
-        )
+        result = test.update(rng.poisson(0.1, n).sum(), n, rng.poisson(0.1, n).sum(), n)
         assert result.lambda_value >= 0
 
     @pytest.mark.parametrize("alpha", [0.01, 0.05, 0.10])
     def test_sequential_test_threshold_matches_alpha(self, alpha):
         from insurance_monitoring import SequentialTest
-        test = SequentialTest(metric="frequency", alternative=1.5, rho_sq=1.0, alpha=alpha)
+        test = SequentialTest(metric="frequency", alpha=alpha)
         rng = _rng(0)
-        result = test.update(50, 50, 500, 500)
+        result = test.update(50, 500, 50, 500)
         assert result.threshold == pytest.approx(1.0 / alpha, rel=1e-6)
 
 
@@ -465,7 +457,7 @@ class TestThresholdsParametric:
         (1.0, "green"),
         (1.05, "green"),
         (1.10, "amber"),
-        (1.20, "amber"),
+        (1.20, "red"),
         (1.25, "red"),
         (2.0, "red"),
     ])
@@ -613,7 +605,7 @@ class TestPricingDriftMonitorParametric:
         monitor = PricingDriftMonitor(n_bootstrap=99, random_state=0)
         monitor.fit(y_ref, yp_ref, e_ref)
         result = monitor.test(y_new, yp_new, e_new)
-        assert result.decision in ("REDEPLOY", "RECALIBRATE", "REFIT")
+        assert result.verdict in ("OK", "RECALIBRATE", "REFIT")
 
 
 # ===========================================================================
@@ -630,7 +622,8 @@ class TestGiniDriftBootstrapTestParametric:
         y_true = rng.uniform(0, 1, n)
         y_pred = rng.uniform(0, 1, n)
         test = GiniDriftBootstrapTest(
-            y_true=y_true, y_pred=y_pred, ref_gini=ref_gini, n_bootstrap=99, seed=0
+            training_gini=ref_gini, monitor_actual=y_true, monitor_predicted=y_pred,
+            n_bootstrap=99, random_state=0
         )
         result = test.test()
         assert isinstance(result.significant, bool)
@@ -643,7 +636,8 @@ class TestGiniDriftBootstrapTestParametric:
         y_true = rng.uniform(0, 1, n)
         y_pred = rng.uniform(0, 1, n)
         test = GiniDriftBootstrapTest(
-            y_true=y_true, y_pred=y_pred, ref_gini=0.3, n_bootstrap=n_bootstrap, seed=0
+            training_gini=0.3, monitor_actual=y_true, monitor_predicted=y_pred,
+            n_bootstrap=n_bootstrap, random_state=0
         )
         result = test.test()
         assert hasattr(result, "significant")

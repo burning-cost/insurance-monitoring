@@ -132,6 +132,14 @@ def psi(
 
     if len(ref) == 0 or len(cur) == 0:
         raise ValueError("reference and current must both be non-empty")
+    if len(ref) < 2:
+        raise ValueError(
+            f"reference must have at least 2 observations to form bins, got {len(ref)}"
+        )
+    if len(cur) < 2:
+        raise ValueError(
+            f"current must have at least 2 observations to form bins, got {len(cur)}"
+        )
     if n_bins < 2:
         raise ValueError("n_bins must be at least 2")
     if weights is not None and len(weights) != len(cur):
