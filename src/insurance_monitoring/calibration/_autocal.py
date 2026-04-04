@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import numpy.typing as npt
 import scipy.stats
@@ -209,6 +211,11 @@ def _bootstrap_mcb_test(
     Under H0 (model is correctly calibrated), simulate y_b from the assumed
     distribution with mean y_hat, then compute MCB of y_b vs y_hat. The
     p-value is the fraction of bootstrap MCB values >= observed MCB.
+
+    Isotonic complexity warnings (step count > sqrt(n)) are suppressed inside
+    the bootstrap loop. Bootstrap samples are random by construction and will
+    frequently trigger the complexity heuristic even for well-ranked models —
+    the warning is only meaningful when applied to the real holdout data.
     """
     rng = np.random.default_rng(seed)
     mcb_boot = np.empty(bootstrap_n, dtype=np.float64)
@@ -219,9 +226,15 @@ def _bootstrap_mcb_test(
             counts_b = rng.poisson(w * y_hat)
             y_b = np.where(w > 0, counts_b / w, 0.0)
             y_b = np.maximum(y_b, 0.0)
-            # Use a small floor to avoid log(0) issues
+            # Floor y_hat to avoid log(0) issues; floor y_hat_rc_b for the same
+            # reason — isotonic recalibration of bootstrap samples can return zero
+            # when an entire block of y_b happens to be zero.
             y_hat_safe = np.maximum(y_hat, 1e-10)
-            y_hat_rc_b = isotonic_recalibrate(y_b, y_hat_safe, w)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                y_hat_rc_b = np.maximum(
+                    isotonic_recalibrate(y_b, y_hat_safe, w), 1e-10
+                )
             d_full = deviance(y_b, y_hat_safe, w, distribution, tweedie_power)
             d_rc = deviance(y_b, y_hat_rc_b, w, distribution, tweedie_power)
             mcb_boot[i] = max(d_full - d_rc, 0.0)
@@ -233,7 +246,11 @@ def _bootstrap_mcb_test(
             # Gamma(shape, scale=y_hat * phi)
             y_b = rng.gamma(shape=shape, scale=y_hat * phi)
             y_b = np.maximum(y_b, 1e-10)
-            y_hat_rc_b = isotonic_recalibrate(y_b, y_hat, w)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                y_hat_rc_b = np.maximum(
+                    isotonic_recalibrate(y_b, y_hat, w), 1e-10
+                )
             d_full = deviance(y_b, y_hat, w, distribution, tweedie_power)
             d_rc = deviance(y_b, y_hat_rc_b, w, distribution, tweedie_power)
             mcb_boot[i] = max(d_full - d_rc, 0.0)
@@ -244,7 +261,11 @@ def _bootstrap_mcb_test(
         sigma = float(np.sqrt(np.average(residuals ** 2, weights=w)))
         for i in range(bootstrap_n):
             y_b = rng.normal(loc=y_hat, scale=sigma)
-            y_hat_rc_b = isotonic_recalibrate(y_b, y_hat, w)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                y_hat_rc_b = np.maximum(
+                    isotonic_recalibrate(y_b, y_hat, w), 1e-10
+                )
             d_full = deviance(y_b, y_hat, w, distribution, tweedie_power)
             d_rc = deviance(y_b, y_hat_rc_b, w, distribution, tweedie_power)
             mcb_boot[i] = max(d_full - d_rc, 0.0)
@@ -257,7 +278,11 @@ def _bootstrap_mcb_test(
             y_b = np.where(w > 0, counts_b / w, 0.0)
             y_b = np.maximum(y_b, 0.0)
             y_hat_safe = np.maximum(y_hat, 1e-10)
-            y_hat_rc_b = isotonic_recalibrate(y_b, y_hat_safe, w)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                y_hat_rc_b = np.maximum(
+                    isotonic_recalibrate(y_b, y_hat_safe, w), 1e-10
+                )
             d_full = deviance(y_b, y_hat_safe, w, distribution, tweedie_power)
             d_rc = deviance(y_b, y_hat_rc_b, w, distribution, tweedie_power)
             mcb_boot[i] = max(d_full - d_rc, 0.0)

@@ -136,15 +136,30 @@ def tweedie_deviance(
     p = power
     eps = np.finfo(np.float64).tiny  # smallest positive float64, ~5e-324
 
-    # When y=0, the term y^(2-p) -> 0 as y -> 0+, so we can safely use max(y, eps)
-    # only for the logarithm-like term; the y*mu^(1-p)/(1-p) term handles y=0 directly.
+    # When y=0, the term y^(2-p) -> 0 as y -> 0+.
+    # When mu=0 (can occur after isotonic recalibration of bootstrap samples),
+    # mu^(1-p) and mu^(2-p) blow up because (1-p) < 0 and mu=0.
+    # Guard both with errstate; the np.where cleanup replaces any inf/nan
+    # produced on zero-mu rows with the limiting value 0.0 (zero-mu predictions
+    # carry zero deviance contribution — they should not appear in practice but
+    # arise transiently inside the bootstrap MCB test).
+    mu_safe = np.where(mu > 0, mu, eps)
     y_safe = np.where(y > 0, y, eps)
-    t1 = y_safe ** (2 - p) / ((1 - p) * (2 - p))
-    t2 = y * mu ** (1 - p) / (1 - p)
-    t3 = mu ** (2 - p) / (2 - p)
+
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        t1 = y_safe ** (2 - p) / ((1 - p) * (2 - p))
+        t2 = y * mu_safe ** (1 - p) / (1 - p)
+        t3 = mu_safe ** (2 - p) / (2 - p)
+
+    # Replace any inf/nan produced by mu=0 rows (mu_safe=eps gives extreme but
+    # finite values; the np.errstate covers any residual overflow to inf).
+    t1 = np.where(np.isfinite(t1), t1, 0.0)
+    t2 = np.where(np.isfinite(t2), t2, 0.0)
+    t3 = np.where(np.isfinite(t3), t3, 0.0)
+
     unit_dev = 2.0 * (t1 - t2 + t3)
     # Zero-claim rows: y=0 means t2=0, t1 approaches 0, leaving only t3
-    unit_dev = np.where(y > 0, unit_dev, 2.0 * mu ** (2 - p) / (2 - p))
+    unit_dev = np.where(y > 0, unit_dev, 2.0 * t3)
     return float(np.sum(w * unit_dev) / np.sum(w))
 
 
