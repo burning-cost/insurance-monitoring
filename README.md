@@ -382,3 +382,11 @@ Part of the [Burning Cost](https://burning-cost.github.io) open-source insurance
 > Questions or feedback? Start a [Discussion](https://github.com/burning-cost/insurance-monitoring/discussions). Found it useful? A [GitHub star](https://github.com/burning-cost/insurance-monitoring) helps others find it.
 
 **Need help implementing this in production?** [Talk to us](https://burning-cost.github.io/work-with-us/).
+
+## Related Libraries
+
+| Library | Description |
+|---------|-------------|
+| [`insurance-conformal`](https://github.com/burning-cost/insurance-conformal) | Conformal prediction intervals — use monitoring PSI scores to trigger interval recalibration |
+| [`insurance-cv`](https://github.com/burning-cost/insurance-cv) | Walk-forward temporal cross-validation — defines the train/validation splits that monitoring tracks over time |
+| [`insurance-governance`](https://github.com/burning-cost/insurance-governance) | Model governance — feed monitoring outputs into your PRA validation documentation |
