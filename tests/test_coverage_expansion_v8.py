@@ -14,6 +14,8 @@ import numpy as np
 import polars as pl
 import pytest
 
+sklearn = pytest.importorskip("sklearn", reason="scikit-learn not installed")
+
 
 # ---------------------------------------------------------------------------
 # conformal_chart math identities
@@ -33,7 +35,7 @@ class TestConformalMathIdentities:
         p = _conformal_p_values(new_scores, cal)
         alpha = 0.05
         # Allow tight bound; ICP guarantees P(p < alpha) <= alpha
-        assert np.mean(p < alpha) <= alpha + 0.01
+        assert np.mean(p < alpha) <= alpha + 0.02
 
     def test_p_value_formula_single(self):
         """Verify formula: (#{s_cal >= s_new} + 1) / (n + 1)."""

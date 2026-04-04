@@ -25,6 +25,8 @@ import numpy as np
 import polars as pl
 import pytest
 
+sklearn = pytest.importorskip("sklearn", reason="scikit-learn not installed")
+
 
 # ---------------------------------------------------------------------------
 # Helpers

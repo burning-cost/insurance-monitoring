@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import datetime
 import math
+import warnings
 
 import numpy as np
 import polars as pl
@@ -324,7 +325,12 @@ def test_drift_attribution_result_has_field(field_name):
         model_retrained=False,
     )
     assert hasattr(r, field_name)
-    assert r[field_name] == getattr(r, field_name)
+    val = r[field_name]
+    expected_val = getattr(r, field_name)
+    if isinstance(val, pl.DataFrame):
+        assert val.frame_equal(expected_val)
+    else:
+        assert val == expected_val
 
 
 @pytest.mark.parametrize("alpha,n_cal,expect_warning", [
