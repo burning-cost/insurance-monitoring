@@ -4,13 +4,42 @@ build-backend = "hatchling.build"
 
 [project]
 name = "insurance-monitoring"
-version = "1.2.0"
+version = "1.2.1"
 description = "Model drift detection, calibration monitoring, and sequential A/B testing for insurance pricing models: PSI, Gini drift, Murphy decomposition, mSPRT champion/challenger."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "Burning Cost", email = "pricing.frontier@gmail.com" }]
-keywords = ["insurance", "monitoring", "drift", "PSI", "Gini", "calibration", "murphy", "pricing", "actuarial", "TRIPODD", "sequential", "a/b testing", "champion challenger", "mSPRT", "PIT", "e-process", "anytime-valid", "mlflow", "loss ratio", "LRE", "model value"]
+keywords = [
+    "insurance",
+    "monitoring",
+    "model monitoring",
+    "drift detection",
+    "data drift",
+    "covariate shift",
+    "PSI",
+    "population stability index",
+    "Gini",
+    "calibration",
+    "murphy decomposition",
+    "murphy diagram",
+    "pricing",
+    "actuarial",
+    "UK",
+    "personal lines",
+    "sequential testing",
+    "a/b testing",
+    "champion challenger",
+    "mSPRT",
+    "anytime-valid",
+    "e-process",
+    "PIT",
+    "loss ratio",
+    "model value",
+    "mlflow",
+    "TRIPODD",
+    "LRE",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Financial and Insurance Industry",
@@ -20,6 +49,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Mathematics",
     "Topic :: Scientific/Engineering :: Information Analysis",
     "Topic :: Office/Business :: Financial",
 ]
@@ -38,11 +68,11 @@ mlflow = ["mlflow>=3.0", "pyarrow>=14.0"]
 sklearn = ["scikit-learn>=1.3"]
 
 [project.urls]
-Homepage = "https://burning-cost.github.io/"
+Homepage = "https://burning-cost.github.io/libraries/insurance-monitoring/"
+Documentation = "https://burning-cost.github.io/libraries/insurance-monitoring/"
 Repository = "https://github.com/burning-cost/insurance-monitoring"
-Changelog = "https://github.com/burning-cost/insurance-monitoring/releases"
-Documentation = "https://burning-cost.github.io/insurance-monitoring"
 "Bug Tracker" = "https://github.com/burning-cost/insurance-monitoring/issues"
+Changelog = "https://github.com/burning-cost/insurance-monitoring/releases"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/insurance_monitoring"]
